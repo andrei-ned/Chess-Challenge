@@ -21,23 +21,23 @@ public class MyBot : IChessBot
         _board = board;
 #if DEBUG
         moveScores.Clear();
-        ConsoleHelper.Log("\nThonk\n", false, ConsoleColor.DarkRed);
+        //ConsoleHelper.Log("\nThonk\n", false, ConsoleColor.DarkRed);
         evalCount = 0;
 #endif
-        Search(4, true);
+        Search(4, -1000000000, 1000000000, true);
 #if DEBUG
         ConsoleHelper.Log($"Evaluated {evalCount} positions.");
         List<KeyValuePair<Move, int>> kvps = moveScores.ToList();
         kvps.Sort((a, b) => a.Value.CompareTo(b.Value));
         foreach (var kvp in kvps)
         {
-            ConsoleHelper.Log($"{kvp.Key} was scored {kvp.Value}.");
+            //ConsoleHelper.Log($"{kvp.Key} was scored {kvp.Value}.");
         }
 #endif
         return _bestMove;
     }
 
-    private int Search(int depth, bool recordMoves = false)
+    private int Search(int depth, int alpha, int beta, bool recordMoves = false)
     {
         // First check if there's a checkmate
         if (_board.IsInCheckmate())
@@ -46,26 +46,27 @@ public class MyBot : IChessBot
         if (depth == 0)
             return Evaluate() * (_board.IsWhiteToMove ? 1 : -1);
 
-        int bestEval = int.MinValue;
-        var moves = _board.GetLegalMoves();
-        foreach (Move move in moves)
+        foreach (Move move in _board.GetLegalMoves())
         {
             _board.MakeMove(move);
-            int eval = -Search(depth - 1);
+            int eval = -Search(depth - 1, -beta, -alpha);
+            _board.UndoMove(move);
 #if DEBUG
             if (recordMoves)
                 moveScores[move] = eval;
 #endif
-
-            if (eval > bestEval)
+            if (eval >= beta)
             {
-                bestEval = eval;
+                return beta;
+            }
+            if (eval > alpha)
+            {
+                alpha = eval;
                 if (recordMoves)
                     _bestMove = move;
             }
-            _board.UndoMove(move);
         }
-        return bestEval;
+        return alpha;
     }
 
     // Evaluates a board, positive score is good for white, negative for black
