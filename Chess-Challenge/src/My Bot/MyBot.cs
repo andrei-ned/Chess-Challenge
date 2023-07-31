@@ -24,9 +24,9 @@ public class MyBot : IChessBot
         //ConsoleHelper.Log("\nThonk\n", false, ConsoleColor.DarkRed);
         evalCount = 0;
 #endif
-        Search(4, -1000000000, 1000000000, true);
+        Search(5, -1000000000, 1000000000, true);
 #if DEBUG
-        ConsoleHelper.Log($"Evaluated {evalCount} positions.");
+        ConsoleHelper.Log($"Evaluated {evalCount} positions in {timer.MillisecondsElapsedThisTurn} milliseconds.");
         List<KeyValuePair<Move, int>> kvps = moveScores.ToList();
         kvps.Sort((a, b) => a.Value.CompareTo(b.Value));
         foreach (var kvp in kvps)
@@ -42,6 +42,8 @@ public class MyBot : IChessBot
         // First check if there's a checkmate
         if (_board.IsInCheckmate())
             return -10000 * (depth + 1); // multiply by depth, the sooner the mate the better
+        if (_board.IsDraw())
+            return 0;
 
         if (depth == 0)
             return Evaluate() * (_board.IsWhiteToMove ? 1 : -1);
