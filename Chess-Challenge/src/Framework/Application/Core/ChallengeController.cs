@@ -19,7 +19,8 @@ namespace ChessChallenge.Application
         {
             Human,
             MyBot,
-            EvilBot
+            EvilBot,
+            MyBot_v1
         }
 
         // Game state
@@ -210,6 +211,7 @@ namespace ChessChallenge.Application
             {
                 PlayerType.MyBot => new ChessPlayer(new MyBot(), type, GameDurationMilliseconds),
                 PlayerType.EvilBot => new ChessPlayer(new EvilBot(), type, GameDurationMilliseconds),
+                PlayerType.MyBot_v1 => new ChessPlayer(new MyBot_v1_basic(), type, GameDurationMilliseconds),
                 _ => new ChessPlayer(new HumanPlayer(boardUI), type)
             };
         }
@@ -281,7 +283,7 @@ namespace ChessChallenge.Application
 
                 if (log)
                 {
-                    Log("Game Over: " + result, false, ConsoleColor.Blue);
+                    Log($"Game Over: {result}", false, ConsoleColor.Blue);
                 }
 
                 string pgn = PGNCreator.CreatePGN(board, result, GetPlayerName(PlayerWhite), GetPlayerName(PlayerBlack));
@@ -330,6 +332,9 @@ namespace ChessChallenge.Application
 
             void UpdateStats(BotMatchStats stats, bool isWhiteStats)
             {
+                var player = isWhiteStats ? PlayerWhite : PlayerBlack;
+                stats.totalMillisRemaining += player.TimeRemainingMs;
+
                 // Draw
                 if (Arbiter.IsDrawResult(result))
                 {
@@ -446,6 +451,7 @@ namespace ChessChallenge.Application
             public int NumDraws;
             public int NumTimeouts;
             public int NumIllegalMoves;
+            public int totalMillisRemaining;
 
             public BotMatchStats(string name) => BotName = name;
         }

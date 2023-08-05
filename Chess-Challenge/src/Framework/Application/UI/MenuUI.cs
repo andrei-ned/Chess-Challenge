@@ -10,26 +10,58 @@ namespace ChessChallenge.Application
     {
         public static void DrawButtons(ChallengeController controller)
         {
-            Vector2 buttonPos = UIHelper.Scale(new Vector2(260, 210));
-            Vector2 buttonSize = UIHelper.Scale(new Vector2(260, 55));
+            Vector2 buttonPos = UIHelper.Scale(new Vector2(135, 100));
+            Vector2 buttonSize = UIHelper.Scale(new Vector2(255, 55));
             float spacing = buttonSize.Y * 1.2f;
             float breakSpacing = spacing * 0.6f;
 
+            ChallengeController.PlayerType[] humanMatchups = {
+                ChallengeController.PlayerType.MyBot,
+                ChallengeController.PlayerType.MyBot_v1,
+            };
+
+            ChallengeController.PlayerType[] myBotMatchups = {
+                ChallengeController.PlayerType.EvilBot,
+                ChallengeController.PlayerType.MyBot,
+                ChallengeController.PlayerType.MyBot_v1,
+            };
+
             // Game Buttons
-            if (NextButtonInRow("Human vs MyBot", ref buttonPos, spacing, buttonSize))
+            foreach (var botPlayer in humanMatchups)
             {
-                var whiteType = controller.HumanWasWhiteLastGame ? ChallengeController.PlayerType.MyBot : ChallengeController.PlayerType.Human;
-                var blackType = !controller.HumanWasWhiteLastGame ? ChallengeController.PlayerType.MyBot : ChallengeController.PlayerType.Human;
-                controller.StartNewGame(whiteType, blackType);
+                if (NextButtonInRow($"Human vs {botPlayer}", ref buttonPos, spacing, buttonSize))
+                {
+                    var whiteType = controller.HumanWasWhiteLastGame ? botPlayer : ChallengeController.PlayerType.Human;
+                    var blackType = !controller.HumanWasWhiteLastGame ? botPlayer : ChallengeController.PlayerType.Human;
+                    controller.StartNewGame(whiteType, blackType);
+                }
             }
-            if (NextButtonInRow("MyBot vs MyBot", ref buttonPos, spacing, buttonSize))
+
+            foreach (var botPlayer in myBotMatchups)
             {
-                controller.StartNewBotMatch(ChallengeController.PlayerType.MyBot, ChallengeController.PlayerType.MyBot);
+                if (NextButtonInRow($"MyBot vs {botPlayer}", ref buttonPos, spacing, buttonSize))
+                {
+                    controller.StartNewBotMatch(ChallengeController.PlayerType.MyBot, botPlayer);
+                }
             }
-            if (NextButtonInRow("MyBot vs EvilBot", ref buttonPos, spacing, buttonSize))
-            {
-                controller.StartNewBotMatch(ChallengeController.PlayerType.MyBot, ChallengeController.PlayerType.EvilBot);
-            }
+            //if (NextButtonInRow("Human vs MyBot", ref buttonPos, spacing, buttonSize))
+            //{
+            //    var whiteType = controller.HumanWasWhiteLastGame ? ChallengeController.PlayerType.MyBot : ChallengeController.PlayerType.Human;
+            //    var blackType = !controller.HumanWasWhiteLastGame ? ChallengeController.PlayerType.MyBot : ChallengeController.PlayerType.Human;
+            //    controller.StartNewGame(whiteType, blackType);
+            //}
+            //if (NextButtonInRow("MyBot vs MyBot", ref buttonPos, spacing, buttonSize))
+            //{
+            //    controller.StartNewBotMatch(ChallengeController.PlayerType.MyBot, ChallengeController.PlayerType.MyBot);
+            //}
+            //if (NextButtonInRow("MyBot vs EvilBot", ref buttonPos, spacing, buttonSize))
+            //{
+            //    controller.StartNewBotMatch(ChallengeController.PlayerType.MyBot, ChallengeController.PlayerType.EvilBot);
+            //}
+
+            buttonPos = UIHelper.Scale(new Vector2(135 + 260, 100));
+
+            // FEN
             if (NextButtonInRow("Load FEN as human", ref buttonPos, spacing, buttonSize))
             {
                 CreateGameFromFENInput(true);
