@@ -20,7 +20,9 @@ namespace ChessChallenge.Application
             Human,
             MyBot,
             EvilBot,
-            MyBot_v1
+            MyBot_v1,
+            MyBot_v2,
+            MyBot_v3,
         }
 
         // Game state
@@ -212,6 +214,8 @@ namespace ChessChallenge.Application
                 PlayerType.MyBot => new ChessPlayer(new MyBot(), type, GameDurationMilliseconds),
                 PlayerType.EvilBot => new ChessPlayer(new EvilBot(), type, GameDurationMilliseconds),
                 PlayerType.MyBot_v1 => new ChessPlayer(new MyBot_v1_basic(), type, GameDurationMilliseconds),
+                PlayerType.MyBot_v2 => new ChessPlayer(new MyBot_v2_TTable(), type, GameDurationMilliseconds),
+                PlayerType.MyBot_v3 => new ChessPlayer(new MyBot_v3_QSearch(), type, GameDurationMilliseconds),
                 _ => new ChessPlayer(new HumanPlayer(boardUI), type)
             };
         }
@@ -460,6 +464,11 @@ namespace ChessChallenge.Application
         {
             board.LoadPosition(pos);
             boardUI.UpdatePosition(board);
+        }
+
+        public string GetFEN()
+        {
+            return FenUtility.CurrentFen(board);
         }
 
         public void Release()

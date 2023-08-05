@@ -3,12 +3,9 @@ using System;
 using System.Numerics;
 using System.Collections.Generic;
 using System.Linq;
-#if DEBUG
 using ChessChallenge.Application;
-#endif
 
-
-public class MyBot : IChessBot
+public class MyBot_v3_QSearch : IChessBot
 {
     private int[] pieceValues = { 0, 100, 300, 300, 500, 900, 10000 };
     private TranspositionTable _transpositionTable = new TranspositionTable(32000);
@@ -37,7 +34,7 @@ public class MyBot : IChessBot
         Search(4, -1000000000, 1000000000, true);
 #if DEBUG
         //ConsoleHelper.Log($"Transposition hits: {_tableHitCount}, table has {_transpositionTable.Count} / {_transpositionTable.Capacity} entries", false, ConsoleColor.DarkRed);
-        ConsoleHelper.Log($"Eval value: {bestEval}. Evaluated {_evalCount} positions in {timer.MillisecondsElapsedThisTurn} milliseconds.");
+        //ConsoleHelper.Log($"Eval value: {bestEval}. Evaluated {_evalCount} positions in {timer.MillisecondsElapsedThisTurn} milliseconds.");
         List<KeyValuePair<Move, int>> kvps = _moveScoresDict.ToList();
         kvps.Sort((a, b) => a.Value.CompareTo(b.Value));
         foreach (var kvp in kvps)
@@ -148,7 +145,7 @@ public class MyBot : IChessBot
         for (int i = 0; i < moves.Length; i++)
             _moveScores[i] = GuessMoveScore(moves[i]);
 
-        _moveScores.AsSpan().Slice(0, moves.Length).Sort(moves, (a,b) => b.CompareTo(a));
+        _moveScores.AsSpan().Slice(0, moves.Length).Sort(moves, (a, b) => b.CompareTo(a));
 
         int GuessMoveScore(Move move)
         {
@@ -165,16 +162,7 @@ public class MyBot : IChessBot
             if (move.IsCastles)
                 guess += 10000;
 
-            //if (_board.o)
             return guess;
-        }
-
-        int GetMoveScoreFromTT(Move move)
-        {
-            _board.MakeMove(move);
-            _transpositionTable.TryGetEvaluation(_board.ZobristKey, out int score);
-            _board.UndoMove(move);
-            return score;
         }
     }
 
@@ -229,7 +217,7 @@ public class MyBot : IChessBot
                 eval = entry._evalValue;
                 return true;
             }
-            eval = 0; 
+            eval = 0;
             return false;
         }
 

@@ -23,6 +23,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Update="src\My Bot\MyBot_v3.cs">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Compile>
+    <Compile Update="src\My Bot\MyBot_v2.cs">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Compile>
     <Compile Update="src\My Bot\MyBot_v1.cs">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Compile>

@@ -8,6 +8,8 @@ namespace ChessChallenge.Application
 {
     public static class MenuUI
     {
+        private static ChallengeController.PlayerType lastSelectedBot = ChallengeController.PlayerType.MyBot;
+
         public static void DrawButtons(ChallengeController controller)
         {
             Vector2 buttonPos = UIHelper.Scale(new Vector2(135, 100));
@@ -18,12 +20,16 @@ namespace ChessChallenge.Application
             ChallengeController.PlayerType[] humanMatchups = {
                 ChallengeController.PlayerType.MyBot,
                 ChallengeController.PlayerType.MyBot_v1,
+                ChallengeController.PlayerType.MyBot_v2,
+                ChallengeController.PlayerType.MyBot_v3,
             };
 
             ChallengeController.PlayerType[] myBotMatchups = {
                 ChallengeController.PlayerType.EvilBot,
                 ChallengeController.PlayerType.MyBot,
                 ChallengeController.PlayerType.MyBot_v1,
+                ChallengeController.PlayerType.MyBot_v2,
+                ChallengeController.PlayerType.MyBot_v3,
             };
 
             // Game Buttons
@@ -31,6 +37,7 @@ namespace ChessChallenge.Application
             {
                 if (NextButtonInRow($"Human vs {botPlayer}", ref buttonPos, spacing, buttonSize))
                 {
+                    lastSelectedBot = botPlayer;
                     var whiteType = controller.HumanWasWhiteLastGame ? botPlayer : ChallengeController.PlayerType.Human;
                     var blackType = !controller.HumanWasWhiteLastGame ? botPlayer : ChallengeController.PlayerType.Human;
                     controller.StartNewGame(whiteType, blackType);
@@ -69,6 +76,10 @@ namespace ChessChallenge.Application
             if (NextButtonInRow("Load FEN as bot", ref buttonPos, spacing, buttonSize))
             {
                 CreateGameFromFENInput(false);
+            }
+            if (NextButtonInRow("Get FEN", ref buttonPos, spacing, buttonSize))
+            {
+                ConsoleHelper.Log(controller.GetFEN());
             }
 
             // Page buttons
@@ -120,17 +131,24 @@ namespace ChessChallenge.Application
 
             void CreateGameFromFENInput(bool humanToMove)
             {
-                string? input = Console.ReadLine();
-                if (input == null)
+                try
                 {
-                    ConsoleHelper.Log("Input was null");
-                    return;
+                    string? input = Console.ReadLine();
+                    if (input == null)
+                    {
+                        ConsoleHelper.Log("Input was null");
+                        return;
+                    }
+                    var pos = FenUtility.PositionFromFen(input);
+                    var whiteType = pos.whiteToMove == humanToMove ? ChallengeController.PlayerType.Human : lastSelectedBot;
+                    var blackType = pos.whiteToMove != humanToMove ? ChallengeController.PlayerType.Human : lastSelectedBot;
+                    controller.StartNewGame(whiteType, blackType);
+                    controller.SetBoardFromFEN(pos);
                 }
-                var pos = FenUtility.PositionFromFen(input);
-                var whiteType = pos.whiteToMove == humanToMove ? ChallengeController.PlayerType.Human : ChallengeController.PlayerType.MyBot;
-                var blackType = pos.whiteToMove != humanToMove ? ChallengeController.PlayerType.Human : ChallengeController.PlayerType.MyBot;
-                controller.StartNewGame(whiteType, blackType);
-                controller.SetBoardFromFEN(pos);
+                catch (Exception e)
+                {
+                    ConsoleHelper.Log($"Error creating board from FEN: {e.Message}", true);
+                }
             }
         }
     }

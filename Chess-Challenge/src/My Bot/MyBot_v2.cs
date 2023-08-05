@@ -3,49 +3,40 @@ using System;
 using System.Numerics;
 using System.Collections.Generic;
 using System.Linq;
-#if DEBUG
-using ChessChallenge.Application;
-#endif
 
-
-public class MyBot : IChessBot
+public class MyBot_v2_TTable : IChessBot
 {
     private int[] pieceValues = { 0, 100, 300, 300, 500, 900, 10000 };
     private TranspositionTable _transpositionTable = new TranspositionTable(32000);
     private Board _board;
     private Move _bestMove;
-    private Move _bestMoveLastIteration;
 
-    private int[] _moveScores = new int[218];
-
-#if DEBUG
-    private Dictionary<Move, int> _moveScoresDict = new Dictionary<Move, int>();
-    private int _evalCount;
-    private int _tableHitCount;
-#endif
+//#if DEBUG
+//    private Dictionary<Move, int> _moveScores = new Dictionary<Move, int>();
+//    private int _evalCount;
+//    private int _tableHitCount;
+//#endif
 
     public Move Think(Board board, Timer timer)
     {
         _board = board;
-#if DEBUG
-        _moveScoresDict.Clear();
-        //ConsoleHelper.Log($"Entry size is {TranspositionTable.Entry.GetSize()} bytes", false);
-        _evalCount = 0;
-        _tableHitCount = 0;
-        int bestEval =
-#endif
-        Search(4, -1000000000, 1000000000, true);
-#if DEBUG
-        //ConsoleHelper.Log($"Transposition hits: {_tableHitCount}, table has {_transpositionTable.Count} / {_transpositionTable.Capacity} entries", false, ConsoleColor.DarkRed);
-        ConsoleHelper.Log($"Eval value: {bestEval}. Evaluated {_evalCount} positions in {timer.MillisecondsElapsedThisTurn} milliseconds.");
-        List<KeyValuePair<Move, int>> kvps = _moveScoresDict.ToList();
-        kvps.Sort((a, b) => a.Value.CompareTo(b.Value));
-        foreach (var kvp in kvps)
-        {
-            //ConsoleHelper.Log($"{kvp.Key} was scored {kvp.Value}.");
-        }
-#endif
-        _bestMoveLastIteration = _bestMove;
+//#if DEBUG
+//        _moveScores.Clear();
+//        //ConsoleHelper.Log($"Entry size is {TranspositionTable.Entry.GetSize()} bytes", false);
+//        _evalCount = 0;
+//        _tableHitCount = 0;
+//#endif
+        int bestEval = Search(4, -1000000000, 1000000000, true);
+//#if DEBUG
+//        //ConsoleHelper.Log($"Transposition hits: {_tableHitCount}, table has {_transpositionTable.Count} / {_transpositionTable.Capacity} entries", false, ConsoleColor.DarkRed);
+//        //ConsoleHelper.Log($"Evaluated {_evalCount} positions in {timer.MillisecondsElapsedThisTurn} milliseconds.");
+//        List<KeyValuePair<Move, int>> kvps = _moveScores.ToList();
+//        kvps.Sort((a, b) => a.Value.CompareTo(b.Value));
+//        foreach (var kvp in kvps)
+//        {
+//            //ConsoleHelper.Log($"{kvp.Key} was scored {kvp.Value}.");
+//        }
+//#endif
         return _bestMove;
     }
 
@@ -59,28 +50,26 @@ public class MyBot : IChessBot
 
         if (!recordMoves && _transpositionTable.TryGetEvaluation(_board.ZobristKey, depth, alpha, beta, out int tableEval))
         {
-#if DEBUG
-            _tableHitCount++;
-#endif
+//#if DEBUG
+//            _tableHitCount++;
+//#endif
             return tableEval;
         }
 
         if (depth == 0)
-            return QSearch(alpha, beta);
+            return Evaluate() * (_board.IsWhiteToMove ? 1 : -1);
 
         var evalType = TableEvalType.Alpha;
-        Span<Move> legalMoves = stackalloc Move[218];
-        _board.GetLegalMovesNonAlloc(ref legalMoves);
-        OrderMoves(ref legalMoves);
-        foreach (Move move in legalMoves)
+        foreach (Move move in _board.GetLegalMoves())
         {
+            //_board.ZobristKey
             _board.MakeMove(move);
             int eval = -Search(depth - 1, -beta, -alpha);
             _board.UndoMove(move);
-#if DEBUG
-            if (recordMoves)
-                _moveScoresDict[move] = eval;
-#endif
+//#if DEBUG
+//            if (recordMoves)
+//                _moveScores[move] = eval;
+//#endif
             if (eval >= beta)
             {
                 _transpositionTable.StoreEvaluation(depth, eval, _board.ZobristKey, TableEvalType.Beta);
@@ -99,38 +88,12 @@ public class MyBot : IChessBot
         return alpha;
     }
 
-    // Search only captures
-    private int QSearch(int alpha, int beta)
-    {
-        int eval = Evaluate() * (_board.IsWhiteToMove ? 1 : -1);
-        if (eval >= beta)
-            return beta;
-        if (alpha < eval)
-            alpha = eval;
-
-        Span<Move> legalMoves = stackalloc Move[256];
-        _board.GetLegalMovesNonAlloc(ref legalMoves, true);
-        foreach (Move move in legalMoves)
-        {
-            _board.MakeMove(move);
-            eval = -QSearch(-beta, -alpha);
-            _board.UndoMove(move);
-
-            if (eval >= beta)
-                return beta;
-            if (eval > alpha)
-                alpha = eval;
-        }
-
-        return alpha;
-    }
-
     // Evaluates a board, positive score is good for white, negative for black
     private int Evaluate()
     {
-#if DEBUG
-        _evalCount++;
-#endif
+//#if DEBUG
+//        _evalCount++;
+//#endif
         // Evaluate based on material value
         int evaluation = 0;
         foreach (PieceType pieceType in Enum.GetValues(typeof(PieceType)))
@@ -141,41 +104,6 @@ public class MyBot : IChessBot
             evaluation -= _board.GetPieceList(pieceType, false).Count * pieceValues[(int)pieceType];
         }
         return evaluation;
-    }
-
-    private void OrderMoves(ref Span<Move> moves)
-    {
-        for (int i = 0; i < moves.Length; i++)
-            _moveScores[i] = GuessMoveScore(moves[i]);
-
-        _moveScores.AsSpan().Slice(0, moves.Length).Sort(moves, (a,b) => b.CompareTo(a));
-
-        int GuessMoveScore(Move move)
-        {
-            int guess = 0;
-            var movedPiece = move.MovePieceType;
-            var capturedPiece = move.CapturePieceType;
-
-            if (capturedPiece != PieceType.None)
-                guess = 10 * pieceValues[(int)capturedPiece] - pieceValues[(int)movedPiece];
-
-            if (move.IsPromotion)
-                guess += pieceValues[(int)move.PromotionPieceType];
-
-            if (move.IsCastles)
-                guess += 10000;
-
-            //if (_board.o)
-            return guess;
-        }
-
-        int GetMoveScoreFromTT(Move move)
-        {
-            _board.MakeMove(move);
-            _transpositionTable.TryGetEvaluation(_board.ZobristKey, out int score);
-            _board.UndoMove(move);
-            return score;
-        }
     }
 
     public class TranspositionTable
@@ -222,21 +150,10 @@ public class MyBot : IChessBot
             return false;
         }
 
-        public bool TryGetEvaluation(ulong zobristKey, out int eval)
-        {
-            if (_entryDict.TryGetValue(zobristKey, out Entry entry))
-            {
-                eval = entry._evalValue;
-                return true;
-            }
-            eval = 0; 
-            return false;
-        }
-
-#if DEBUG
-        public int Capacity => _capacity;
-        public int Count => _entryDict.Count;
-#endif
+//#if DEBUG
+//        public int Capacity => _capacity;
+//        public int Count => _entryDict.Count;
+//#endif
 
 
         public struct Entry
@@ -252,12 +169,12 @@ public class MyBot : IChessBot
                 _nodeType = nodeType;
             }
 
-#if DEBUG
-            public static int GetSize()
-            {
-                return System.Runtime.InteropServices.Marshal.SizeOf<Entry>();
-            }
-#endif
+//#if DEBUG
+//            public static int GetSize()
+//            {
+//                return System.Runtime.InteropServices.Marshal.SizeOf<Entry>();
+//            }
+//#endif
         }
     }
 
