@@ -26,14 +26,14 @@ public class MyBot : IChessBot
         _board = board;
 #if DEBUG
         _moveScores.Clear();
-        ConsoleHelper.Log($"Entry size is {TranspositionTable.Entry.GetSize()} bytes", false);
+        //ConsoleHelper.Log($"Entry size is {TranspositionTable.Entry.GetSize()} bytes", false);
         _evalCount = 0;
         _tableHitCount = 0;
 #endif
-        Search(6, -1000000000, 1000000000, true);
+        int bestEval = Search(4, -1000000000, 1000000000, true);
 #if DEBUG
-        ConsoleHelper.Log($"Transposition hits: {_tableHitCount}, table has {_transpositionTable.Count} / {_transpositionTable.Capacity} entries", false, ConsoleColor.DarkRed);
-        ConsoleHelper.Log($"Evaluated {_evalCount} positions in {timer.MillisecondsElapsedThisTurn} milliseconds.");
+        //ConsoleHelper.Log($"Transposition hits: {_tableHitCount}, table has {_transpositionTable.Count} / {_transpositionTable.Capacity} entries", false, ConsoleColor.DarkRed);
+        //ConsoleHelper.Log($"Evaluated {_evalCount} positions in {timer.MillisecondsElapsedThisTurn} milliseconds.");
         List<KeyValuePair<Move, int>> kvps = _moveScores.ToList();
         kvps.Sort((a, b) => a.Value.CompareTo(b.Value));
         foreach (var kvp in kvps)
@@ -52,9 +52,11 @@ public class MyBot : IChessBot
         if (_board.IsDraw())
             return 0;
 
-        if (_transpositionTable.TryGetEvaluation(_board.ZobristKey, depth, alpha, beta, out int tableEval))
+        if (!recordMoves && _transpositionTable.TryGetEvaluation(_board.ZobristKey, depth, alpha, beta, out int tableEval))
         {
+#if DEBUG
             _tableHitCount++;
+#endif
             return tableEval;
         }
 
