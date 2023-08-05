@@ -5,29 +5,36 @@ using System.Collections.Generic;
 using System.Linq;
 using ChessChallenge.Application;
 
+// TODO: make MyBot class without transposition table to compare
+// test same fen position for time elapsed and eval count
+
 public class MyBot : IChessBot
 {
     private int[] pieceValues = { 0, 100, 300, 300, 500, 900, 10000 };
+    private TranspositionTable _transpositionTable = new TranspositionTable(32000);
     private Board _board;
     private Move _bestMove;
 
 #if DEBUG
-    private Dictionary<Move, int> moveScores = new Dictionary<Move, int>();
-    private int evalCount;
+    private Dictionary<Move, int> _moveScores = new Dictionary<Move, int>();
+    private int _evalCount;
+    private int _tableHitCount;
 #endif
 
     public Move Think(Board board, Timer timer)
     {
         _board = board;
 #if DEBUG
-        moveScores.Clear();
-        //ConsoleHelper.Log("\nThonk\n", false, ConsoleColor.DarkRed);
-        evalCount = 0;
+        _moveScores.Clear();
+        ConsoleHelper.Log($"Entry size is {TranspositionTable.Entry.GetSize()} bytes", false);
+        _evalCount = 0;
+        _tableHitCount = 0;
 #endif
-        Search(5, -1000000000, 1000000000, true);
+        Search(6, -1000000000, 1000000000, true);
 #if DEBUG
-        ConsoleHelper.Log($"Evaluated {evalCount} positions in {timer.MillisecondsElapsedThisTurn} milliseconds.");
-        List<KeyValuePair<Move, int>> kvps = moveScores.ToList();
+        ConsoleHelper.Log($"Transposition hits: {_tableHitCount}, table has {_transpositionTable.Count} / {_transpositionTable.Capacity} entries", false, ConsoleColor.DarkRed);
+        ConsoleHelper.Log($"Evaluated {_evalCount} positions in {timer.MillisecondsElapsedThisTurn} milliseconds.");
+        List<KeyValuePair<Move, int>> kvps = _moveScores.ToList();
         kvps.Sort((a, b) => a.Value.CompareTo(b.Value));
         foreach (var kvp in kvps)
         {
@@ -45,29 +52,41 @@ public class MyBot : IChessBot
         if (_board.IsDraw())
             return 0;
 
+        if (_transpositionTable.TryGetEvaluation(_board.ZobristKey, depth, alpha, beta, out int tableEval))
+        {
+            _tableHitCount++;
+            return tableEval;
+        }
+
         if (depth == 0)
             return Evaluate() * (_board.IsWhiteToMove ? 1 : -1);
 
+        var evalType = TableEvalType.Alpha;
         foreach (Move move in _board.GetLegalMoves())
         {
+            //_board.ZobristKey
             _board.MakeMove(move);
             int eval = -Search(depth - 1, -beta, -alpha);
             _board.UndoMove(move);
 #if DEBUG
             if (recordMoves)
-                moveScores[move] = eval;
+                _moveScores[move] = eval;
 #endif
             if (eval >= beta)
             {
+                _transpositionTable.StoreEvaluation(depth, eval, _board.ZobristKey, TableEvalType.Beta);
                 return beta;
             }
             if (eval > alpha)
             {
+                evalType = TableEvalType.Exact;
                 alpha = eval;
                 if (recordMoves)
                     _bestMove = move;
             }
         }
+
+        _transpositionTable.StoreEvaluation(depth, alpha, _board.ZobristKey, evalType);
         return alpha;
     }
 
@@ -75,7 +94,7 @@ public class MyBot : IChessBot
     private int Evaluate()
     {
 #if DEBUG
-        evalCount++;
+        _evalCount++;
 #endif
         // Evaluate based on material value
         int evaluation = 0;
@@ -88,4 +107,83 @@ public class MyBot : IChessBot
         }
         return evaluation;
     }
+}
+
+public class TranspositionTable
+{
+    private Dictionary<ulong, Entry> _entryDict;
+    private Queue<ulong> _keys;
+    private int _capacity;
+
+    public TranspositionTable(int capacity)
+    {
+        _capacity = capacity;
+        _entryDict = new Dictionary<ulong, Entry>();
+        _keys = new Queue<ulong>();
+    }
+
+    public void StoreEvaluation(int depth, int eval, ulong zobristKey, TableEvalType nodeType)
+    {
+        while (_entryDict.Count >= _capacity && _keys.Count > 0)
+        {
+            var oldestKey = _keys.Dequeue();
+            _entryDict.Remove(oldestKey);
+        }
+
+        _entryDict[zobristKey] = new Entry(eval, (byte)depth, nodeType);
+        _keys.Enqueue(zobristKey);
+    }
+
+    public bool TryGetEvaluation(ulong zobristKey, int depth, int alpha, int beta, out int eval)
+    {
+        if (_entryDict.TryGetValue(zobristKey, out Entry entry))
+        {
+            if (entry._depth >= depth)
+            {
+                eval = entry._evalValue;
+                if (entry._nodeType == TableEvalType.Exact)
+                    return true;
+                if (entry._nodeType == TableEvalType.Alpha && eval <= alpha)
+                    return true;
+                if (entry._nodeType == TableEvalType.Beta && eval >= beta)
+                    return true;
+            }
+        }
+        eval = 0;
+        return false;
+    }
+
+#if DEBUG
+    public int Capacity => _capacity;
+    public int Count => _entryDict.Count;
+#endif
+
+
+    public struct Entry
+    {
+        public readonly int _evalValue;
+        public readonly byte _depth;
+        public readonly TableEvalType _nodeType;
+
+        public Entry(int eval, byte depth, TableEvalType nodeType)
+        {
+            _evalValue = eval;
+            _depth = depth;
+            _nodeType = nodeType;
+        }
+
+#if DEBUG
+        public static int GetSize()
+        {
+            return System.Runtime.InteropServices.Marshal.SizeOf<Entry>();
+        }
+#endif
+    }
+}
+
+public enum TableEvalType : byte
+{
+    Exact,
+    Alpha,
+    Beta
 }
