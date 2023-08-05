@@ -450,6 +450,12 @@ namespace ChessChallenge.Application
             public BotMatchStats(string name) => BotName = name;
         }
 
+        public void SetBoardFromFEN(FenUtility.PositionInfo pos)
+        {
+            board.LoadPosition(pos);
+            boardUI.UpdatePosition(board);
+        }
+
         public void Release()
         {
             boardUI.Release();

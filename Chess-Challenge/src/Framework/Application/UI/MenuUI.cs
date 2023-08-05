@@ -2,6 +2,7 @@
 using System.Numerics;
 using System;
 using System.IO;
+using ChessChallenge.Chess;
 
 namespace ChessChallenge.Application
 {
@@ -28,6 +29,14 @@ namespace ChessChallenge.Application
             if (NextButtonInRow("MyBot vs EvilBot", ref buttonPos, spacing, buttonSize))
             {
                 controller.StartNewBotMatch(ChallengeController.PlayerType.MyBot, ChallengeController.PlayerType.EvilBot);
+            }
+            if (NextButtonInRow("Load FEN as human", ref buttonPos, spacing, buttonSize))
+            {
+                CreateGameFromFENInput(true);
+            }
+            if (NextButtonInRow("Load FEN as bot", ref buttonPos, spacing, buttonSize))
+            {
+                CreateGameFromFENInput(false);
             }
 
             // Page buttons
@@ -75,6 +84,21 @@ namespace ChessChallenge.Application
                 bool pressed = UIHelper.Button(name, pos, size);
                 pos.Y += spacingY;
                 return pressed;
+            }
+
+            void CreateGameFromFENInput(bool humanToMove)
+            {
+                string? input = Console.ReadLine();
+                if (input == null)
+                {
+                    ConsoleHelper.Log("Input was null");
+                    return;
+                }
+                var pos = FenUtility.PositionFromFen(input);
+                var whiteType = pos.whiteToMove == humanToMove ? ChallengeController.PlayerType.Human : ChallengeController.PlayerType.MyBot;
+                var blackType = pos.whiteToMove != humanToMove ? ChallengeController.PlayerType.Human : ChallengeController.PlayerType.MyBot;
+                controller.StartNewGame(whiteType, blackType);
+                controller.SetBoardFromFEN(pos);
             }
         }
     }
