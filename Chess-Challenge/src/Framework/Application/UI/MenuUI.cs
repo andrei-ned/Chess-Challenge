@@ -19,17 +19,21 @@ namespace ChessChallenge.Application
 
             ChallengeController.PlayerType[] humanMatchups = {
                 ChallengeController.PlayerType.MyBot,
-                ChallengeController.PlayerType.MyBot_v1,
-                ChallengeController.PlayerType.MyBot_v2,
+                //ChallengeController.PlayerType.MyBot_v1,
+                //ChallengeController.PlayerType.MyBot_v2,
                 ChallengeController.PlayerType.MyBot_v3,
+                ChallengeController.PlayerType.MyBot_v4,
+                ChallengeController.PlayerType.MyBot_v5,
             };
 
             ChallengeController.PlayerType[] myBotMatchups = {
                 ChallengeController.PlayerType.EvilBot,
                 ChallengeController.PlayerType.MyBot,
-                ChallengeController.PlayerType.MyBot_v1,
-                ChallengeController.PlayerType.MyBot_v2,
+                //ChallengeController.PlayerType.MyBot_v1,
+                //ChallengeController.PlayerType.MyBot_v2,
                 ChallengeController.PlayerType.MyBot_v3,
+                ChallengeController.PlayerType.MyBot_v4,
+                ChallengeController.PlayerType.MyBot_v5,
             };
 
             // Game Buttons

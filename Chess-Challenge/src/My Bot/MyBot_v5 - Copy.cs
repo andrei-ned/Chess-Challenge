@@ -8,15 +8,15 @@ using ChessChallenge.Application;
 #endif
 
 
-public class MyBot : IChessBot
+public class MyBot_v5_failed_search_cancel : IChessBot
 {
     // { None, Pawn, Knight, Bishop, Rook, Queen, King}
     private int[] _pieceValues = { 0, 100, 300, 300, 500, 900, 10000 };
-    private int[] _bonusPointsPerAttackEarly = { 0, 0, 4, 5, 1, 1, 0 };
+    private int[] _bonusPointsPerAttackEarly = { 0, 0, 5, 5, 1, 1, 0 };
     private int[] _bonusPointsPerAttackLate = { 0, 0, 2, 3, 5, 3, 1 };
     private TranspositionTable _transpositionTable = new TranspositionTable(32000);
     private Board _board;
-    private Move _bestMove;
+    private Move _bestMoveInSearch;
 
     private bool IsLategame => _board.PlyCount > 30;
 
@@ -24,9 +24,9 @@ public class MyBot : IChessBot
     private Dictionary<Move, int> _moveScoresDict = new Dictionary<Move, int>();
 
     // Time management
-    //private Timer _timer;
-    //private int _maxMillis;
-    //private bool ShouldCancel => _timer.MillisecondsElapsedThisTurn > _maxMillis;
+    private Timer _timer;
+    private int _maxMillis;
+    private bool ShouldCancel => _timer.MillisecondsElapsedThisTurn > _maxMillis;
 
 
 #if DEBUG
@@ -37,40 +37,56 @@ public class MyBot : IChessBot
     public Move Think(Board board, Timer timer)
     {
         _board = board;
-        //_timer = timer;
+        _timer = timer;
 #if DEBUG
         _moveScoresDict.Clear();
         //ConsoleHelper.Log($"Entry size is {TranspositionTable.Entry.GetSize()} bytes", false);
         _evalCount = 0;
         _tableHitCount = 0;
         //int bestEval =
-#endif
         int bestEval = 0;
+#endif
 
-        //_maxMillis = 100;
-        // Timing
-        int targetMillis = (Math.Min(1000, timer.MillisecondsRemaining / 40) + timer.IncrementMilliseconds) / 4;
+        // Set max search time
+        _maxMillis = Math.Min(2000, timer.MillisecondsRemaining / 30);
+        _maxMillis += timer.IncrementMilliseconds;
+        //_maxMillis = 200;
 
-        // TODO
-        // Forced move, don't wate time searching
+        Move bestMove = Move.NullMove;
 
         // Iterative deepening
         int searchDepth = 1;
         for (; searchDepth <= 256; searchDepth++)
         {
-            if (timer.MillisecondsElapsedThisTurn > targetMillis)
+            _bestMoveInSearch = Move.NullMove;
+#if DEBUG
+            bestEval =
+#endif
+                Search(searchDepth, -1000000000, 1000000000, true);
+
+
+            if (ShouldCancel)
+            {
+#if DEBUG
+                //ConsoleHelper.Log($"Best move partial search: {_bestMoveInSearch} with eval {_moveScoresDict[_bestMoveInSearch]} at depth {searchDepth}");
+#endif
                 break;
-            //if (ShouldCancel)
-            //    break;
-            //_moveScoresDict.Clear();
-            bestEval = Search(searchDepth, -1000000000, 1000000000, true);
+            }
+            if (_bestMoveInSearch != Move.NullMove)
+            {
+                _moveScoresDict[_bestMoveInSearch] += 100;
+                bestMove = _bestMoveInSearch;
+            }
+#if DEBUG
+            //ConsoleHelper.Log($"Best move {bestMove} with eval {bestEval} at depth {searchDepth}", false, ConsoleColor.Cyan);
+#endif
         }
 
 #if DEBUG
         //ConsoleHelper.Log($"Transposition hits: {_tableHitCount}, table has {_transpositionTable.Count} / {_transpositionTable.Capacity} entries", false, ConsoleColor.DarkRed);
         ConsoleHelper.Log(
-            $"Best move {_bestMove} with eval: {bestEval}. Evaluated {_evalCount} positions at depth {searchDepth} in {timer.MillisecondsElapsedThisTurn} " +
-            $"(/{targetMillis}) milliseconds.", false, ConsoleColor.White);
+            $"Best move {_bestMoveInSearch} with eval: {bestEval}. Evaluated {_evalCount} positions at depth {searchDepth} in {timer.MillisecondsElapsedThisTurn} milliseconds.",
+            false, ConsoleColor.Cyan);
         List<KeyValuePair<Move, int>> kvps = _moveScoresDict.ToList();
         kvps.Sort((a, b) => b.Value.CompareTo(a.Value));
         foreach (var kvp in kvps)
@@ -83,18 +99,21 @@ public class MyBot : IChessBot
         ////var whiteQueenBitboard = BitboardHelper.GetPieceAttacks(PieceType.Queen, whiteQueen.Square, _board, true);
         //BitboardHelper.VisualizeBitboard(whiteQueenBitboard);
 #endif
-        return _bestMove;
+        return _bestMoveInSearch;
     }
 
-    private int Search(int depth, int alpha, int beta, bool isRoot = false)
+    private int Search(int depth, int alpha, int beta, bool rootDepth = false)
     {
+        if (ShouldCancel)
+            return 0;
+
         // First check if there's a checkmate
         if (_board.IsInCheckmate())
             return -10000 * (depth + 1); // multiply by depth, the sooner the mate the better
         if (_board.IsDraw())
             return -10; // evaluate draw a little negative, better try than draw by repetition
 
-        if (!isRoot && _transpositionTable.TryGetEvaluation(_board.ZobristKey, depth, alpha, beta, out int tableEval))
+        if (!rootDepth && _transpositionTable.TryGetEvaluation(_board.ZobristKey, depth, alpha, beta, out int tableEval))
 #if DEBUG
         {
             _tableHitCount++;
@@ -104,17 +123,14 @@ public class MyBot : IChessBot
         }
 #endif
 
-        //if (ShouldCancel)
-        //    return 0;
-
         if (depth == 0)
             return QSearch(alpha, beta);
 
         var evalType = TableEvalType.Alpha;
         Span<Move> legalMoves = stackalloc Move[218];
         _board.GetLegalMovesNonAlloc(ref legalMoves);
-        OrderMoves(ref legalMoves, isRoot && depth > 1 && _moveScoresDict.Count > 0);
-        if (isRoot)
+        OrderMoves(ref legalMoves, rootDepth && depth > 1);
+        if (rootDepth)
             _moveScoresDict.Clear();
         foreach (Move move in legalMoves)
         {
@@ -122,7 +138,7 @@ public class MyBot : IChessBot
             int eval = -Search(depth - 1, -beta, -alpha);
             _board.UndoMove(move);
             //#if DEBUG
-            if (isRoot)
+            if (rootDepth)
                 _moveScoresDict[move] = eval;
             //#endif
 
@@ -135,9 +151,12 @@ public class MyBot : IChessBot
             {
                 evalType = TableEvalType.Exact;
                 alpha = eval;
-                if (isRoot)
-                    _bestMove = move;
+                if (rootDepth)
+                    _bestMoveInSearch = move;
             }
+
+            if (ShouldCancel)
+                return 0;
         }
 
         _transpositionTable.StoreEvaluation(depth, alpha, _board.ZobristKey, evalType);
@@ -147,6 +166,9 @@ public class MyBot : IChessBot
     // Search only captures
     private int QSearch(int alpha, int beta)
     {
+        if (ShouldCancel)
+            return 0;
+
         int eval = 0;
         if (_board.IsInCheckmate())
             eval = 1000000;
@@ -180,7 +202,6 @@ public class MyBot : IChessBot
 #if DEBUG
         _evalCount++;
 #endif
-        // Evaluate based on material value
         int evaluation = 0;
         var bonusPointsPerAttack = IsLategame ? _bonusPointsPerAttackLate : _bonusPointsPerAttackEarly;
         foreach (PieceType pieceType in Enum.GetValues(typeof(PieceType)))
@@ -211,14 +232,22 @@ public class MyBot : IChessBot
         void EvaluatePieces(PieceType pieceType, bool isWhite)
         {
             int sign = isWhite ? 1 : -1;
+
+            // Evaluate based on material value
             var pieceList = _board.GetPieceList(pieceType, isWhite);
             evaluation += pieceList.Count * _pieceValues[(int)pieceType] * sign;
+
+            // Add points for more attacks available
             foreach (var piece in pieceList)
             {
                 var pieceBitboard = BitboardHelper.GetPieceAttacks(pieceType, piece.Square, _board, isWhite);
                 var attacks = BitboardHelper.GetNumberOfSetBits(pieceBitboard);
                 evaluation += attacks * bonusPointsPerAttack[(int)pieceType] * sign;
             }
+
+            // Idea:
+            // Add points if castles available
+            //_board.HasKingsideCastleRight
         }
     }
 
@@ -229,15 +258,21 @@ public class MyBot : IChessBot
 
         _moveScores.AsSpan().Slice(0, moves.Length).Sort(moves, (a, b) => b.CompareTo(a));
 
+#if DEBUG
+        //if (orderByLastIterationScores)
+        //    ConsoleHelper.Log($"First move tried is {moves[0]} with eval {_moveScoresDict[moves[0]]}");
+#endif
+
         int GetScoreFromLastIteration(Move move)
         {
-            return _moveScoresDict[move];
+            return _moveScoresDict.Count > 0 ? _moveScoresDict[move] : 0;
         }
 
         int GuessMoveScore(Move move)
         {
             int guess = 0;
             var movedPiece = move.MovePieceType;
+
             var capturedPiece = move.CapturePieceType;
 
             if (capturedPiece != PieceType.None)
