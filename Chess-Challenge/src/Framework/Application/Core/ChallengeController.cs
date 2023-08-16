@@ -219,7 +219,7 @@ namespace ChessChallenge.Application
                 PlayerType.MyBot_v2 => new ChessPlayer(new MyBot_v2_TTable(), type, GameDurationMilliseconds),
                 PlayerType.MyBot_v3 => new ChessPlayer(new MyBot_v3_QSearch(), type, GameDurationMilliseconds),
                 PlayerType.MyBot_v4 => new ChessPlayer(new MyBot_v4_iterDeep_newEval(), type, GameDurationMilliseconds),
-                PlayerType.MyBot_v5 => new ChessPlayer(new MyBot_v5_testing_renamemelater(), type, GameDurationMilliseconds),
+                PlayerType.MyBot_v5 => new ChessPlayer(new MyBot_v5_time_management_tt_fix(), type, GameDurationMilliseconds),
                 _ => new ChessPlayer(new HumanPlayer(boardUI), type)
             };
         }

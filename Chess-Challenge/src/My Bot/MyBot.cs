@@ -14,6 +14,7 @@ public class MyBot : IChessBot
     private int[] _pieceValues = { 0, 100, 300, 300, 500, 900, 10000 };
     private int[] _bonusPointsPerAttackEarly = { 0, 0, 4, 5, 1, 1, 0 };
     private int[] _bonusPointsPerAttackLate = { 0, 0, 2, 3, 5, 3, 1 };
+
     private TranspositionTable _transpositionTable = new TranspositionTable(32000);
     private Board _board;
     private Move _bestMove;
@@ -22,12 +23,6 @@ public class MyBot : IChessBot
 
     private int[] _moveScores = new int[218]; // for sorting moves
     private Dictionary<Move, int> _moveScoresDict = new Dictionary<Move, int>();
-
-    // Time management
-    //private Timer _timer;
-    //private int _maxMillis;
-    //private bool ShouldCancel => _timer.MillisecondsElapsedThisTurn > _maxMillis;
-
 
 #if DEBUG
     private int _evalCount;
@@ -43,16 +38,24 @@ public class MyBot : IChessBot
         //ConsoleHelper.Log($"Entry size is {TranspositionTable.Entry.GetSize()} bytes", false);
         _evalCount = 0;
         _tableHitCount = 0;
-        //int bestEval =
-#endif
         int bestEval = 0;
+#endif
 
-        //_maxMillis = 100;
         // Timing
         int targetMillis = (Math.Min(1000, timer.MillisecondsRemaining / 40) + timer.IncrementMilliseconds) / 4;
 
-        // TODO
-        // Forced move, don't wate time searching
+        // Forced move, don't waste time searching
+        Span<Move> legalMoves = stackalloc Move[218];
+        _board.GetLegalMovesNonAlloc(ref legalMoves);
+        if (legalMoves.Length == 1)
+#if DEBUG
+        {
+            ConsoleHelper.Log($"Forced {legalMoves[0]}", false, ConsoleColor.Magenta);
+#endif
+            return legalMoves[0];
+#if DEBUG
+        }
+#endif
 
         // Iterative deepening
         int searchDepth = 1;
@@ -60,10 +63,10 @@ public class MyBot : IChessBot
         {
             if (timer.MillisecondsElapsedThisTurn > targetMillis)
                 break;
-            //if (ShouldCancel)
-            //    break;
-            //_moveScoresDict.Clear();
-            bestEval = Search(searchDepth, -1000000000, 1000000000, true);
+#if DEBUG
+            bestEval = 
+#endif
+            Search(searchDepth, -1000000000, 1000000000, true);
         }
 
 #if DEBUG
@@ -159,6 +162,7 @@ public class MyBot : IChessBot
 
         Span<Move> legalMoves = stackalloc Move[256];
         _board.GetLegalMovesNonAlloc(ref legalMoves, true);
+        OrderMoves(ref legalMoves, false);
         foreach (Move move in legalMoves)
         {
             _board.MakeMove(move);
@@ -189,22 +193,6 @@ public class MyBot : IChessBot
                 continue;
             EvaluatePieces(pieceType, true);
             EvaluatePieces(pieceType, false);
-            //var whitePieceList = _board.GetPieceList(pieceType, true);
-            //var blackPieceList = _board.GetPieceList(pieceType, false);
-            //evaluation += whitePieceList.Count * pieceValues[(int)pieceType];
-            //evaluation -= blackPieceList.Count * pieceValues[(int)pieceType];
-            //foreach (var piece in whitePieceList)
-            //{
-            //    var pieceBitboard = BitboardHelper.GetPieceAttacks(piece.PieceType, piece.Square, _board, true);
-            //    var attacks = BitboardHelper.GetNumberOfSetBits(pieceBitboard);
-            //    evaluation += attacks;
-            //}
-            //foreach (var piece in blackPieceList)
-            //{
-            //    var pieceBitboard =  BitboardHelper.GetPieceAttacks(piece.PieceType, piece.Square, _board, false);
-            //    var attacks = BitboardHelper.GetNumberOfSetBits(pieceBitboard);
-            //    evaluation -= attacks;
-            //}
         }
         return evaluation;
 
@@ -252,6 +240,7 @@ public class MyBot : IChessBot
             return guess;
         }
 
+        // TODO make this work
         //int GetMoveScoreFromTT(Move move)
         //{
         //    _board.MakeMove(move);
@@ -263,32 +252,26 @@ public class MyBot : IChessBot
 
     public class TranspositionTable
     {
-        private Dictionary<ulong, Entry> _entryDict;
-        private Queue<ulong> _keys;
-        private int _capacity;
+        private ulong _capacity;
+        private Entry[] _entries;
 
-        public TranspositionTable(int capacity)
+        private ulong GetIndex(ulong zobristkey) => zobristkey % _capacity;
+
+        public TranspositionTable(ulong capacity)
         {
             _capacity = capacity;
-            _entryDict = new Dictionary<ulong, Entry>();
-            _keys = new Queue<ulong>();
+            _entries = new Entry[capacity];
         }
 
         public void StoreEvaluation(int depth, int eval, ulong zobristKey, TableEvalType nodeType)
         {
-            while (_entryDict.Count >= _capacity && _keys.Count > 0)
-            {
-                var oldestKey = _keys.Dequeue();
-                _entryDict.Remove(oldestKey);
-            }
-
-            _entryDict[zobristKey] = new Entry(eval, (byte)depth, nodeType);
-            _keys.Enqueue(zobristKey);
+            _entries[GetIndex(zobristKey)] = new Entry(eval, (byte)depth, nodeType, zobristKey);
         }
 
         public bool TryGetEvaluation(ulong zobristKey, int depth, int alpha, int beta, out int eval)
         {
-            if (_entryDict.TryGetValue(zobristKey, out Entry entry))
+            Entry entry = _entries[GetIndex(zobristKey)];
+            if (entry._zobristKey == zobristKey)
             {
                 if (entry._depth >= depth)
                 {
@@ -305,34 +288,19 @@ public class MyBot : IChessBot
             return false;
         }
 
-        public bool TryGetEvaluation(ulong zobristKey, out int eval)
-        {
-            if (_entryDict.TryGetValue(zobristKey, out Entry entry))
-            {
-                eval = entry._evalValue;
-                return true;
-            }
-            eval = 0;
-            return false;
-        }
-
-#if DEBUG
-        public int Capacity => _capacity;
-        public int Count => _entryDict.Count;
-#endif
-
-
         public struct Entry
         {
             public readonly int _evalValue;
             public readonly byte _depth;
             public readonly TableEvalType _nodeType;
+            public readonly ulong _zobristKey;
 
-            public Entry(int eval, byte depth, TableEvalType nodeType)
+            public Entry(int eval, byte depth, TableEvalType nodeType, ulong zobristKey)
             {
                 _evalValue = eval;
                 _depth = depth;
                 _nodeType = nodeType;
+                _zobristKey = zobristKey;
             }
 
 #if DEBUG
