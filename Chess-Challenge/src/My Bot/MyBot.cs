@@ -7,7 +7,9 @@ using System.Linq;
 using ChessChallenge.Application;
 #endif
 
-
+// Brain Bot Capacity: 978
+// Fixed Q-Search: 958
+// With no Q-Search: 845
 public class MyBot : IChessBot
 {
     // { None, Pawn, Knight, Bishop, Rook, Queen, King}
@@ -150,11 +152,7 @@ public class MyBot : IChessBot
     // Search only captures
     private int QSearch(int alpha, int beta)
     {
-        int eval = 0;
-        if (_board.IsInCheckmate())
-            eval = 1000000;
-        else if (!_board.IsDraw())
-            eval = Evaluate() * (_board.IsWhiteToMove ? 1 : -1);
+        int eval = Evaluate() * (_board.IsWhiteToMove ? 1 : -1);
         if (eval >= beta)
             return beta;
         if (alpha < eval)
@@ -249,7 +247,9 @@ public class MyBot : IChessBot
         //    return score;
         //}
     }
-
+    
+    // TODO
+    // test if decrementing depth with every Think function makes a difference
     public class TranspositionTable
     {
         private ulong _capacity;
