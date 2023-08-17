@@ -150,11 +150,7 @@ public class MyBot_v5_time_management_tt_fix : IChessBot
     // Search only captures
     private int QSearch(int alpha, int beta)
     {
-        int eval = 0;
-        if (_board.IsInCheckmate())
-            eval = 1000000;
-        else if (!_board.IsDraw())
-            eval = Evaluate() * (_board.IsWhiteToMove ? 1 : -1);
+        int eval = Evaluate() * (_board.IsWhiteToMove ? 1 : -1);
         if (eval >= beta)
             return beta;
         if (alpha < eval)

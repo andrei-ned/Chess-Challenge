@@ -237,19 +237,8 @@ public class MyBot : IChessBot
 
             return guess;
         }
-
-        // TODO make this work
-        //int GetMoveScoreFromTT(Move move)
-        //{
-        //    _board.MakeMove(move);
-        //    _transpositionTable.TryGetEvaluation(_board.ZobristKey, out int score);
-        //    _board.UndoMove(move);
-        //    return score;
-        //}
     }
     
-    // TODO
-    // test if decrementing depth with every Think function makes a difference
     public class TranspositionTable
     {
         private ulong _capacity;
