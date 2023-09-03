@@ -3,12 +3,15 @@ using System;
 using System.Numerics;
 using System.Collections.Generic;
 using System.Linq;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 #if DEBUG
 using ChessChallenge.Application;
 #endif
 
 
-public class MyBot_v6_move_order_fix : IChessBot
+public class MyBot_v7_rng : IChessBot
 {
     // { None, Pawn, Knight, Bishop, Rook, Queen, King}
     private int[] _pieceValues = { 0, 100, 300, 300, 500, 900, 10000 };
@@ -29,6 +32,8 @@ public class MyBot_v6_move_order_fix : IChessBot
     //private Timer _timer;
     //private int _maxMillis;
     //private bool ShouldCancel => _timer.MillisecondsElapsedThisTurn > _maxMillis;
+
+    Random rng = new Random();
 
 #if DEBUG
     private int _evalCount;
@@ -74,7 +79,7 @@ public class MyBot_v6_move_order_fix : IChessBot
 #if DEBUG
             bestEval =
 #endif
-            Search(_currentDepth, -1000000000, 1000000000, true);
+                Search(_currentDepth, -1000000000, 1000000000, true);
         }
 
 #if DEBUG
@@ -208,6 +213,7 @@ public class MyBot_v6_move_order_fix : IChessBot
             //}
         }
         // Add a tiny bit of rng to eval, this way we can pick evaluated positions with same score
+        evaluation += rng.Next(-1, 2);
         return evaluation;
 
         void EvaluatePieces(PieceType pieceType, bool isWhite)

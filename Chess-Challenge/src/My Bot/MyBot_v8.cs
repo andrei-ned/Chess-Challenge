@@ -3,12 +3,15 @@ using System;
 using System.Numerics;
 using System.Collections.Generic;
 using System.Linq;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 #if DEBUG
 using ChessChallenge.Application;
 #endif
 
 
-public class MyBot_v6_move_order_fix : IChessBot
+public class MyBot_v8_extensions : IChessBot
 {
     // { None, Pawn, Knight, Bishop, Rook, Queen, King}
     private int[] _pieceValues = { 0, 100, 300, 300, 500, 900, 10000 };
@@ -30,9 +33,12 @@ public class MyBot_v6_move_order_fix : IChessBot
     //private int _maxMillis;
     //private bool ShouldCancel => _timer.MillisecondsElapsedThisTurn > _maxMillis;
 
+    Random rng = new Random();
+
 #if DEBUG
     private int _evalCount;
     private int _tableHitCount;
+    private int _maxPly;
 #endif
 
     public Move Think(Board board, Timer timer)
@@ -52,7 +58,7 @@ public class MyBot_v6_move_order_fix : IChessBot
 #if DEBUG
         }
 #endif
-
+        _bestMove = legalMoves[0];
 #if DEBUG
         //_moveScoresDict.Clear();
         //ConsoleHelper.Log($"Entry size is {TranspositionTable.Entry.GetSize()} bytes", false);
@@ -60,6 +66,7 @@ public class MyBot_v6_move_order_fix : IChessBot
         _tableHitCount = 0;
         //int bestEval =
         int bestEval = 0;
+        _maxPly = 0;
 #endif
 
         //_maxMillis = 100;
@@ -74,12 +81,16 @@ public class MyBot_v6_move_order_fix : IChessBot
 #if DEBUG
             bestEval =
 #endif
-            Search(_currentDepth, -1000000000, 1000000000, true);
+            Search(_currentDepth, 0, -1000000000, 1000000000);
+#if DEBUG
+            ConsoleHelper.Log($"Max ply was {_maxPly} with depth {_currentDepth}", false);
+            _maxPly = 0;
+#endif
         }
 
 #if DEBUG
         //ConsoleHelper.Log($"Transposition hits: {_tableHitCount}, table has {_transpositionTable.Count} / {_transpositionTable.Capacity} entries", false, ConsoleColor.DarkRed);
-        ConsoleHelper.Log($"Best move {_bestMove} with eval: {bestEval}. Evaluated {_evalCount} positions at depth {_currentDepth} in {timer.MillisecondsElapsedThisTurn} milliseconds.", false, ConsoleColor.Cyan);
+        ConsoleHelper.Log($"Best move {_bestMove} with eval: {bestEval}. Evaluated {_evalCount} positions at depth {_currentDepth} in {timer.MillisecondsElapsedThisTurn} milliseconds.", false);
         //List<KeyValuePair<Move, int>> kvps = _moveScoresDict.ToList();
         //kvps.Sort((a, b) => b.Value.CompareTo(a.Value));
         //foreach (var kvp in kvps)
@@ -95,13 +106,18 @@ public class MyBot_v6_move_order_fix : IChessBot
         return _bestMove;
     }
 
-    private int Search(int depth, int alpha, int beta, bool isRoot = false)
+    private int Search(int depth, int ply, int alpha, int beta)
     {
+#if DEBUG
+        _maxPly = Math.Max(_maxPly, ply);
+#endif
         // First check if there's a checkmate
         if (_board.IsInCheckmate())
-            return -100000 + 1000 * (_currentDepth - depth); // multiply by depth, the sooner the mate the better
+            return -100000 + ply * 1000; // multiply by depth, the sooner the mate the better
         if (_board.IsDraw())
             return 0; // evaluate draw a little negative, better try than draw by repetition
+
+        bool isRoot = ply == 0;
 
         if (!isRoot && _transpositionTable.TryGetEvaluation(_board.ZobristKey, depth, alpha, beta, out int tableEval))
 #if DEBUG
@@ -113,6 +129,9 @@ public class MyBot_v6_move_order_fix : IChessBot
         }
 #endif
 
+        int extend = 0;
+        if (_board.IsInCheck()) // Check extension
+            extend = 1;
         //if (ShouldCancel)
         //    return 0;
 
@@ -123,11 +142,14 @@ public class MyBot_v6_move_order_fix : IChessBot
         Span<Move> legalMoves = stackalloc Move[218];
         _board.GetLegalMovesNonAlloc(ref legalMoves);
 
-        OrderMoves(ref legalMoves, isRoot && depth > 1);
+        if (legalMoves.Length > 1)
+            OrderMoves(ref legalMoves, isRoot && depth > 1);
+        else
+            extend = 1; // Forced move/One reply extension
         foreach (Move move in legalMoves)
         {
             _board.MakeMove(move);
-            int eval = -Search(depth - 1, -beta, -alpha);
+            int eval = -Search(depth - 1 + extend, ply + 1, -beta, -alpha);
             _board.UndoMove(move);
 
             if (eval >= beta)
@@ -208,6 +230,7 @@ public class MyBot_v6_move_order_fix : IChessBot
             //}
         }
         // Add a tiny bit of rng to eval, this way we can pick evaluated positions with same score
+        evaluation += rng.Next(-1, 2);
         return evaluation;
 
         void EvaluatePieces(PieceType pieceType, bool isWhite)
