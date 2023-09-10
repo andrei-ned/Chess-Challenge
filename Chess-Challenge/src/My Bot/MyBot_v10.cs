@@ -4,12 +4,14 @@ using System.Numerics;
 using System.Collections.Generic;
 using System.Linq;
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 #if DEBUG
 using ChessChallenge.Application;
 #endif
 
 
-public class MyBot : IChessBot
+public class MyBot_v10_doubled_pawns : IChessBot
 {
 #if DEBUG
     public int DebugEvaluate(string fen)
