@@ -28,6 +28,7 @@ namespace ChessChallenge.Application
             MyBot_v6,
             MyBot_v7,
             MyBot_v8,
+            MyBot_v9,
         }
 
         // Game state
@@ -226,6 +227,7 @@ namespace ChessChallenge.Application
                 PlayerType.MyBot_v6 => new ChessPlayer(new MyBot_v6_move_order_fix(), type, GameDurationMilliseconds),
                 PlayerType.MyBot_v7 => new ChessPlayer(new MyBot_v7_rng(), type, GameDurationMilliseconds),
                 PlayerType.MyBot_v8 => new ChessPlayer(new MyBot_v8_extensions(), type, GameDurationMilliseconds),
+                PlayerType.MyBot_v9 => new ChessPlayer(new MyBot_v9_passed_pawns(), type, GameDurationMilliseconds),
 
                 _ => new ChessPlayer(new HumanPlayer(boardUI), type)
             };

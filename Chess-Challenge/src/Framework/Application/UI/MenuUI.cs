@@ -21,12 +21,13 @@ namespace ChessChallenge.Application
                 ChallengeController.PlayerType.MyBot,
                 //ChallengeController.PlayerType.MyBot_v1,
                 //ChallengeController.PlayerType.MyBot_v2,
-                ChallengeController.PlayerType.MyBot_v3,
-                ChallengeController.PlayerType.MyBot_v4,
-                ChallengeController.PlayerType.MyBot_v5,
-                ChallengeController.PlayerType.MyBot_v6,
+                //ChallengeController.PlayerType.MyBot_v3,
+                //ChallengeController.PlayerType.MyBot_v4,
+                //ChallengeController.PlayerType.MyBot_v5,
+                //ChallengeController.PlayerType.MyBot_v6,
                 ChallengeController.PlayerType.MyBot_v7,
                 ChallengeController.PlayerType.MyBot_v8,
+                ChallengeController.PlayerType.MyBot_v9,
             };
 
             ChallengeController.PlayerType[] myBotMatchups = {
@@ -34,12 +35,13 @@ namespace ChessChallenge.Application
                 ChallengeController.PlayerType.MyBot,
                 //ChallengeController.PlayerType.MyBot_v1,
                 //ChallengeController.PlayerType.MyBot_v2,
-                ChallengeController.PlayerType.MyBot_v3,
-                ChallengeController.PlayerType.MyBot_v4,
-                ChallengeController.PlayerType.MyBot_v5,
-                ChallengeController.PlayerType.MyBot_v6,
+                //ChallengeController.PlayerType.MyBot_v3,
+                //ChallengeController.PlayerType.MyBot_v4,
+                //ChallengeController.PlayerType.MyBot_v5,
+                //ChallengeController.PlayerType.MyBot_v6,
                 ChallengeController.PlayerType.MyBot_v7,
                 ChallengeController.PlayerType.MyBot_v8,
+                ChallengeController.PlayerType.MyBot_v9,
             };
 
             // Game Buttons
@@ -91,6 +93,15 @@ namespace ChessChallenge.Application
             {
                 ConsoleHelper.Log(controller.GetFEN());
             }
+#if DEBUG
+            if (NextButtonInRow("Evaluate FEN", ref buttonPos, spacing, buttonSize))
+            {
+                var myBot = new MyBot();
+                string? fen = GetFENFromInput();
+                if (fen != null)
+                    myBot.DebugEvaluate(fen);
+            }
+#endif
 
             // Page buttons
             buttonPos.Y += breakSpacing;
@@ -141,24 +152,34 @@ namespace ChessChallenge.Application
 
             void CreateGameFromFENInput(bool humanToMove)
             {
+                string? input = GetFENFromInput();
+                if (input == null)
+                {
+                    return;
+                }
+                var pos = FenUtility.PositionFromFen(input);
+                var whiteType = pos.whiteToMove == humanToMove ? ChallengeController.PlayerType.Human : lastSelectedBot;
+                var blackType = pos.whiteToMove != humanToMove ? ChallengeController.PlayerType.Human : lastSelectedBot;
+                controller.StartNewGame(whiteType, blackType);
+                controller.SetBoardFromFEN(pos);
+            }
+
+            string? GetFENFromInput()
+            {
                 try
                 {
                     string? input = Console.ReadLine();
                     if (input == null)
                     {
                         ConsoleHelper.Log("Input was null");
-                        return;
                     }
-                    var pos = FenUtility.PositionFromFen(input);
-                    var whiteType = pos.whiteToMove == humanToMove ? ChallengeController.PlayerType.Human : lastSelectedBot;
-                    var blackType = pos.whiteToMove != humanToMove ? ChallengeController.PlayerType.Human : lastSelectedBot;
-                    controller.StartNewGame(whiteType, blackType);
-                    controller.SetBoardFromFEN(pos);
+                    return input;
                 }
                 catch (Exception e)
                 {
                     ConsoleHelper.Log($"Error creating board from FEN: {e.Message}", true);
                 }
+                return null;
             }
         }
     }

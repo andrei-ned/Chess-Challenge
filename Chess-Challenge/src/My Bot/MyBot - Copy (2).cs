@@ -4,23 +4,15 @@ using System.Numerics;
 using System.Collections.Generic;
 using System.Linq;
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 #if DEBUG
 using ChessChallenge.Application;
 #endif
 
 
-public class MyBot : IChessBot
+public class MyBot_v9_backup_failed_new_eval : IChessBot
 {
-#if DEBUG
-    public int DebugEvaluate(string fen)
-    {
-        _board = Board.CreateBoardFromFEN(fen);
-        var eval = Evaluate();
-        ConsoleHelper.Log($"Evaluate result: {eval}");
-        return eval;
-    }
-#endif
-
     // { None, Pawn, Knight, Bishop, Rook, Queen, King}
     private int[] _pieceValues = { 0, 100, 300, 300, 500, 900, 10000 };
     private int[] _bonusPointsPerAttackEarly = { 0, 0, 4, 5, 1, 1, 0 };
@@ -89,9 +81,9 @@ public class MyBot : IChessBot
 #if DEBUG
             bestEval =
 #endif
-            Search(_currentDepth, 0, -1000000000, 1000000000);
+                Search(_currentDepth, 0, -1000000000, 1000000000);
 #if DEBUG
-            ConsoleHelper.Log($"Max ply was {_maxPly} with depth {_currentDepth}", false);
+            //ConsoleHelper.Log($"Max ply was {_maxPly} with depth {_currentDepth}", false);
             _maxPly = 0;
 #endif
         }
@@ -110,6 +102,19 @@ public class MyBot : IChessBot
         //var whiteQueenBitboard = BitboardHelper.GetPieceAttacks(PieceType.Queen, whiteQueen.Square, _board, true);
         ////var whiteQueenBitboard = BitboardHelper.GetPieceAttacks(PieceType.Queen, whiteQueen.Square, _board, true);
         //BitboardHelper.VisualizeBitboard(whiteQueenBitboard);
+        //var whitePawns = _board.GetPieceBitboard(PieceType.Pawn, true);
+        //whitePawns <<= 8;
+        //whitePawns |= (whitePawns << 8);
+        //whitePawns |= (whitePawns << 16);
+        //whitePawns |= (whitePawns << 32);
+        //BitboardHelper.VisualizeBitboard(whitePawns);
+
+        //var blackPawns = _board.GetPieceBitboard(PieceType.Pawn, false);
+        //blackPawns >>= 8;
+        //blackPawns |= (blackPawns >> 8);
+        //blackPawns |= (blackPawns >> 16);
+        //blackPawns |= (blackPawns >> 32);
+        //BitboardHelper.VisualizeBitboard(blackPawns);
 #endif
         return _bestMove;
     }
@@ -205,6 +210,16 @@ public class MyBot : IChessBot
         return alpha;
     }
 
+#if DEBUG
+    public int DebugEvaluate(string fen)
+    {
+        _board = Board.CreateBoardFromFEN(fen);
+        var eval = Evaluate();
+        ConsoleHelper.Log($"Evaluate result: {eval}");
+        return eval;
+    }
+#endif
+
     // Evaluates a board, positive score is good for white, negative for black
     private int Evaluate()
     {
@@ -237,8 +252,6 @@ public class MyBot : IChessBot
             //    evaluation -= attacks;
             //}
         }
-        EvaluatePawns(true);
-        EvaluatePawns(false);
         // Add a tiny bit of rng to eval, this way we can pick evaluated positions with same score
         evaluation += rng.Next(-1, 2);
         return evaluation;
@@ -248,64 +261,70 @@ public class MyBot : IChessBot
             int sign = isWhite ? 1 : -1;
             var pieceList = _board.GetPieceList(pieceType, isWhite);
             evaluation += pieceList.Count * _pieceValues[(int)pieceType] * sign;
+            var pawnFileFlags = 0;
             foreach (var piece in pieceList)
             {
                 var pieceBitboard = BitboardHelper.GetPieceAttacks(pieceType, piece.Square, _board, isWhite);
                 var attacks = BitboardHelper.GetNumberOfSetBits(pieceBitboard);
                 evaluation += attacks * bonusPointsPerAttack[(int)pieceType] * sign;
-            }
-        }
 
-        void EvaluatePawns(bool isWhite)
-        {
-            int sign = isWhite ? 1 : -1;
-            //var pawnFileFlags = 0;
-            var pawnList = _board.GetPieceList(PieceType.Pawn, isWhite);
-            foreach (var pawn in pawnList)
+                if (piece.IsPawn)
+                {
+                    var fileFlag = 1 << piece.Square.File;
+                    // Double pawn penalty
+                    //if ((pawnFileFlags & fileFlag) != 0) // We know there was a pawn on this file, so it's a double pawn
+                    //    evaluation -= 50;
+                    pawnFileFlags |= fileFlag;
+
+                    // Passed pawns
+                    ulong passedPawnMask = 0;
+                    BitboardHelper.SetSquare(ref passedPawnMask, piece.Square);
+                    if (piece.Square.File < 7)
+                        passedPawnMask |= passedPawnMask << 1;
+                    if (piece.Square.File > 0)
+                        passedPawnMask |= passedPawnMask >> 1;
+                    if (isWhite)
+                    {
+                        passedPawnMask <<= 8;
+                        passedPawnMask |= passedPawnMask << 8;
+                        passedPawnMask |= passedPawnMask << 16;
+                        passedPawnMask |= passedPawnMask << 32;
+                    }
+                    else
+                    {
+                        passedPawnMask >>= 8;
+                        passedPawnMask |= passedPawnMask >> 8;
+                        passedPawnMask |= passedPawnMask >> 16;
+                        passedPawnMask |= passedPawnMask >> 32;
+                    }
+                    // Passed pawn bonus, the closer to promotion the bigger
+                    //if ((passedPawnMask & _board.GetPieceBitboard(PieceType.Pawn, !isWhite)) == 0) // Check interesction between mask and enemy pawns
+                    //    evaluation += 20 * (isWhite ? piece.Square.Rank : 7 - piece.Square.Rank);
+                }
+
+                // King safety points
+                //if (piece.IsKing && !_board.HasKingsideCastleRight(isWhite) && !_board.HasQueensideCastleRight(isWhite))
+                //{
+                //    var kingThreatsBitboard = BitboardHelper.GetPieceAttacks(PieceType.Queen, piece.Square, _board, isWhite);
+                //    var kingThreats = BitboardHelper.GetNumberOfSetBits(kingThreatsBitboard);
+                //    //evaluation -= kingThreats * 10 * sign;
+                //}
+            }
+            if (pieceType == PieceType.Pawn)
             {
-                //var fileFlag = 1 << pawn.Square.File;
-                //// Double pawn penalty
-                //if ((pawnFileFlags & fileFlag) != 0) // We know there was a pawn on this file, so it's a double pawn
-                //    evaluation -= 50 * sign;
-                //pawnFileFlags |= fileFlag;
-
-                // Passed pawns
-                ulong passedPawnMask = 0;
-                BitboardHelper.SetSquare(ref passedPawnMask, pawn.Square);
-                if (pawn.Square.File < 7)
-                    passedPawnMask |= passedPawnMask << 1;
-                if (pawn.Square.File > 0)
-                    passedPawnMask |= passedPawnMask >> 1;
-                if (isWhite)
+                foreach (var piece in pieceList)
                 {
-                    passedPawnMask <<= 8;
-                    passedPawnMask |= passedPawnMask << 8;
-                    passedPawnMask |= passedPawnMask << 16;
-                    passedPawnMask |= passedPawnMask << 32;
+                    var fileFlag = 1 << piece.Square.File;
+                    // Isolated pawn penalty
+                    //if ((pawnFileFlags & ((fileFlag << 1) | (fileFlag >> 1))) == 0) // Check adjacent files for other friendly pawns
+                    //    evaluation -= 25;
                 }
-                else
-                {
-                    passedPawnMask >>= 8;
-                    passedPawnMask |= passedPawnMask >> 8;
-                    passedPawnMask |= passedPawnMask >> 16;
-                    passedPawnMask |= passedPawnMask >> 32;
-                }
-                // Passed pawn bonus, the closer to promotion the bigger
-                if ((passedPawnMask & _board.GetPieceBitboard(PieceType.Pawn, !isWhite)) == 0) // Check interesction between mask and enemy pawns
-                    evaluation += 20 * (isWhite ? pawn.Square.Rank : 7 - pawn.Square.Rank) * sign;
             }
 
-            //foreach (var pawn in pawnList)
-            //{
-            //    var fileFlag = 1 << pawn.Square.File;
-            //    // Isolated pawn penalty
-            //    if ((pawnFileFlags & ((fileFlag << 1) | (fileFlag >> 1))) == 0) // Check adjacent files for other friendly pawns
-            //        evaluation -= 25 * sign;
-            //}
         }
     }
 
-    private void OrderMoves(ref Span<Move> moves, bool useBestMove)
+    private void OrderMoves(ref Span<Move> moves, bool useBestMove, int ply = -1)
     {
         for (int i = 0; i < moves.Length; i++)
             _moveScores[i] = GuessMoveScore(moves[i]);
