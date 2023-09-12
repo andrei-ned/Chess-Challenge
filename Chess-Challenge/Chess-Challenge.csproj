@@ -26,6 +26,9 @@
     <Compile Update="src\My Bot\MyBot - Copy %282%29.cs">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Compile>
+    <Compile Update="src\My Bot\MyBot_v11.cs">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Compile>
     <Compile Update="src\My Bot\MyBot_v10.cs">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Compile>

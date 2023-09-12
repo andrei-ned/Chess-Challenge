@@ -4,12 +4,14 @@ using System.Numerics;
 using System.Collections.Generic;
 using System.Linq;
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 #if DEBUG
 using ChessChallenge.Application;
 #endif
 
 
-public class MyBot : IChessBot
+public class MyBot_v11_isolated_pawns : IChessBot
 {
 #if DEBUG
     public int DebugEvaluate(string fen)
@@ -220,11 +222,25 @@ public class MyBot : IChessBot
                 continue;
             EvaluatePieces(pieceType, true);
             EvaluatePieces(pieceType, false);
+            //var whitePieceList = _board.GetPieceList(pieceType, true);
+            //var blackPieceList = _board.GetPieceList(pieceType, false);
+            //evaluation += whitePieceList.Count * pieceValues[(int)pieceType];
+            //evaluation -= blackPieceList.Count * pieceValues[(int)pieceType];
+            //foreach (var piece in whitePieceList)
+            //{
+            //    var pieceBitboard = BitboardHelper.GetPieceAttacks(piece.PieceType, piece.Square, _board, true);
+            //    var attacks = BitboardHelper.GetNumberOfSetBits(pieceBitboard);
+            //    evaluation += attacks;
+            //}
+            //foreach (var piece in blackPieceList)
+            //{
+            //    var pieceBitboard =  BitboardHelper.GetPieceAttacks(piece.PieceType, piece.Square, _board, false);
+            //    var attacks = BitboardHelper.GetNumberOfSetBits(pieceBitboard);
+            //    evaluation -= attacks;
+            //}
         }
         EvaluatePawns(true);
         EvaluatePawns(false);
-        //EvaluateKing(true);
-        //EvaluateKing(false);
         // Add a tiny bit of rng to eval, this way we can pick evaluated positions with same score
         evaluation += rng.Next(-1, 2);
         return evaluation;
@@ -289,17 +305,6 @@ public class MyBot : IChessBot
                     evaluation -= 10 * sign;
             }
         }
-
-        // This didn't get more wins, so commenting out
-        //void EvaluateKing(bool isWhite)
-        //{
-        //    // Evaluate king safety, by getting a bitboard of a queen on the king square
-        //    int sign = isWhite ? 1 : -1;
-        //    var king = _board.GetPieceList(PieceType.King, isWhite)[0];
-        //    var kingThreatsBitboard = BitboardHelper.GetPieceAttacks(PieceType.Queen, king.Square, _board, isWhite);
-        //    var kingThreats = BitboardHelper.GetNumberOfSetBits(kingThreatsBitboard);
-        //    evaluation -= kingThreats * 1 * sign;
-        //}
     }
 
     private void OrderMoves(ref Span<Move> moves, bool useBestMove)
