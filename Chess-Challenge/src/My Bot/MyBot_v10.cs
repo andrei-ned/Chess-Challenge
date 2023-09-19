@@ -297,6 +297,7 @@ public class MyBot_v10_doubled_pawns : IChessBot
                     evaluation += 20 * (isWhite ? pawn.Square.Rank : 7 - pawn.Square.Rank) * sign;
             }
 
+            // Isolated pawn penalty, commented out because it did not win more
             //foreach (var pawn in pawnList)
             //{
             //    var fileFlag = 1 << pawn.Square.File;

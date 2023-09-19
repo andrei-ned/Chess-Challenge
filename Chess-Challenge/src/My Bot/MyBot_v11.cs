@@ -3,9 +3,6 @@ using System;
 using System.Numerics;
 using System.Collections.Generic;
 using System.Linq;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
 #if DEBUG
 using ChessChallenge.Application;
 #endif

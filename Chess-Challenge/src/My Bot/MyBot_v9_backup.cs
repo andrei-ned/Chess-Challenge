@@ -10,7 +10,9 @@ using System.Security.Cryptography;
 using ChessChallenge.Application;
 #endif
 
-
+// This version did not perform better than the previous
+// Included new scores in the eval for doubled pawns, isolated pawns, passed pawns, king safety
+// Keep this here as a reference for the king safety attempt
 public class MyBot_v9_backup_failed_new_eval : IChessBot
 {
     // { None, Pawn, Knight, Bishop, Rook, Queen, King}
