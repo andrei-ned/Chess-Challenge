@@ -3,9 +3,6 @@ using System;
 using System.Numerics;
 using System.Collections.Generic;
 using System.Linq;
-#if DEBUG
-using ChessChallenge.Application;
-#endif
 
 // TODO
 // DONE - shrink size within 1024
@@ -13,35 +10,8 @@ using ChessChallenge.Application;
 // play around with some values (e.g. piece values, attack bonuses)
 // can we fit anti extensions for moves that aren't first in the ordering?
 
-// TT:                       1130
-// Eval:                     1102
-// TT Entry ctor:            1079
-// Remove _ttCapacity:       1074
-// Think return in for loop: 1070
-// Order Moves reorg:        1062
-// return rng                1061
-// think return _bestMove    1059
-// removed IsLategame        1055
-// removed _currentDepth     1054
-// think for loop reorg      1051
-// think target millis       1047
-// insanity in think func    1041
-// removed TableEvalType     1021
-
 public class MyBot : IChessBot
 {
-#if DEBUG
-    public int DebugEvaluate(string fen, bool printResult = true)
-    {
-        //board = Board.CreateBoardFromFEN(fen);
-        //var eval = Evaluate();
-        //if (printResult)
-        //    ConsoleHelper.Log($"Evaluate result: {eval}");
-        //return eval;
-        throw new NotImplementedException();
-    }
-#endif
-
     // { None, Pawn, Knight, Bishop, Rook, Queen, King}
     private int[] _pieceValues = { 0, 100, 300, 300, 500, 900, 10000 };
     private int[] _bonusPointsPerAttackEarly = { 0, 0, 4, 5, 1, 1, 0 };
@@ -51,12 +21,6 @@ public class MyBot : IChessBot
 
     // Transposition table
     private TTEntry[] _ttEntries = new TTEntry[16000000];
-
-#if DEBUG
-    private int _evalCount;
-    private int _tableHitCount;
-    private int _maxPly;
-#endif
 
     public Move Think(Board board, Timer timer)
     {
@@ -75,9 +39,6 @@ public class MyBot : IChessBot
 
         int Search(int depth, int ply, int alpha, int beta)
         {
-#if DEBUG
-            _maxPly = Math.Max(_maxPly, ply);
-#endif
             // First check if there's a checkmate
             if (board.IsInCheckmate())
                 return -100000 + ply * 1000; // multiply by depth, the sooner the mate the better
@@ -174,9 +135,6 @@ public class MyBot : IChessBot
         // Evaluates a board, positive score is good for white, negative for black
         int Evaluate()
         {
-#if DEBUG
-            _evalCount++;
-#endif
             // Evaluate based on material value
             int evaluation = 0;
 
@@ -285,12 +243,5 @@ public class MyBot : IChessBot
         public byte _depth;
         public byte _nodeType; // 0 = Exact, 1 = Alpha, 2 = Beta
         public ulong _zobristKey;
-
-#if DEBUG
-        public static int GetSize()
-        {
-            return System.Runtime.InteropServices.Marshal.SizeOf<TTEntry>();
-        }
-#endif
     }
 }
