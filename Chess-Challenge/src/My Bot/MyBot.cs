@@ -8,15 +8,17 @@ using System.ComponentModel;
 using ChessChallenge.Application;
 #endif
 
-
+// TT:   1130
+// Eval: 1102
 public class MyBot : IChessBot
 {
 #if DEBUG
-    public int DebugEvaluate(string fen)
+    public int DebugEvaluate(string fen, bool printResult = true)
     {
         _board = Board.CreateBoardFromFEN(fen);
         var eval = Evaluate();
-        ConsoleHelper.Log($"Evaluate result: {eval}");
+        if (printResult)
+            ConsoleHelper.Log($"Evaluate result: {eval}");
         return eval;
     }
 #endif
@@ -25,7 +27,7 @@ public class MyBot : IChessBot
     private int[] _pieceValues = { 0, 100, 300, 300, 500, 900, 10000 };
     private int[] _bonusPointsPerAttackEarly = { 0, 0, 4, 5, 1, 1, 0 };
     private int[] _bonusPointsPerAttackLate = { 0, 0, 2, 3, 5, 3, 1 };
-    private TranspositionTable _transpositionTable = new TranspositionTable(32000);
+    //private TranspositionTable _transpositionTable = new TranspositionTable(32000);
     private Board _board;
     private Move _bestMove;
 
@@ -42,6 +44,10 @@ public class MyBot : IChessBot
     //private bool ShouldCancel => _timer.MillisecondsElapsedThisTurn > _maxMillis;
 
     Random rng = new Random();
+
+    // Transposition table
+    private const int _ttCapacity = 32000;
+    private TTEntry[] _ttEntries = new TTEntry[_ttCapacity];
 
 #if DEBUG
     private int _evalCount;
@@ -127,15 +133,23 @@ public class MyBot : IChessBot
 
         bool isRoot = ply == 0;
 
-        if (!isRoot && _transpositionTable.TryGetEvaluation(_board.ZobristKey, depth, alpha, beta, out int tableEval))
-#if DEBUG
-        {
-            _tableHitCount++;
-#endif
+//        if (!isRoot && _transpositionTable.TryGetEvaluation(_board.ZobristKey, depth, alpha, beta, out int tableEval))
+//#if DEBUG
+//        {
+//            _tableHitCount++;
+//#endif
+//            return tableEval;
+//#if DEBUG
+//        }
+//#endif
+        // Try get evaluation from Transposition Table
+        TTEntry entry = _ttEntries[_board.ZobristKey % _ttCapacity];
+        int tableEval = entry._evalValue;
+        if (ply != 0 && entry._zobristKey == _board.ZobristKey && entry._depth >= depth
+            && (entry._nodeType == TableEvalType.Exact
+            || entry._nodeType == TableEvalType.Alpha && tableEval <= alpha
+            || entry._nodeType == TableEvalType.Beta && tableEval >= beta))
             return tableEval;
-#if DEBUG
-        }
-#endif
 
         int extend = 0;
         if (_board.IsInCheck()) // Check extension
@@ -162,7 +176,8 @@ public class MyBot : IChessBot
 
             if (eval >= beta)
             {
-                _transpositionTable.StoreEvaluation(depth, eval, _board.ZobristKey, TableEvalType.Beta);
+                //_transpositionTable.StoreEvaluation(depth, eval, _board.ZobristKey, TableEvalType.Beta);
+                StoreEvalInTT(eval, TableEvalType.Beta);
                 return beta;
             }
             if (eval > alpha)
@@ -174,8 +189,20 @@ public class MyBot : IChessBot
             }
         }
 
-        _transpositionTable.StoreEvaluation(depth, alpha, _board.ZobristKey, evalType);
+        //_transpositionTable.StoreEvaluation(depth, alpha, _board.ZobristKey, evalType);
+        StoreEvalInTT(alpha, evalType);
         return alpha;
+
+        void StoreEvalInTT(int evalValue, TableEvalType nodeType)
+        {
+            _ttEntries[_board.ZobristKey % _ttCapacity] = new TTEntry
+            {
+                _nodeType = nodeType,
+                _depth = (byte)depth,
+                _zobristKey = _board.ZobristKey,
+                _evalValue = evalValue
+            };
+        }
     }
 
     // Search only captures
@@ -205,6 +232,7 @@ public class MyBot : IChessBot
         return alpha;
     }
 
+
     // Evaluates a board, positive score is good for white, negative for black
     private int Evaluate()
     {
@@ -218,20 +246,16 @@ public class MyBot : IChessBot
         {
             if (pieceType == PieceType.None)
                 continue;
-            EvaluatePieces(pieceType, true);
-            EvaluatePieces(pieceType, false);
+            EvaluatePieces(pieceType, true, 1);
+            EvaluatePieces(pieceType, false, -1);
         }
-        EvaluatePawns(true);
-        EvaluatePawns(false);
-        //EvaluateKing(true);
-        //EvaluateKing(false);
+
         // Add a tiny bit of rng to eval, this way we can pick evaluated positions with same score
         evaluation += rng.Next(-1, 2);
         return evaluation;
 
-        void EvaluatePieces(PieceType pieceType, bool isWhite)
+        void EvaluatePieces(PieceType pieceType, bool isWhite, int sign)
         {
-            int sign = isWhite ? 1 : -1;
             var pieceList = _board.GetPieceList(pieceType, isWhite);
             evaluation += pieceList.Count * _pieceValues[(int)pieceType] * sign;
             foreach (var piece in pieceList)
@@ -240,66 +264,53 @@ public class MyBot : IChessBot
                 var attacks = BitboardHelper.GetNumberOfSetBits(pieceBitboard);
                 evaluation += attacks * bonusPointsPerAttack[(int)pieceType] * sign;
             }
-        }
 
-        void EvaluatePawns(bool isWhite)
-        {
-            int sign = isWhite ? 1 : -1;
-            var pawnFileFlags = 0;
-            var pawnList = _board.GetPieceList(PieceType.Pawn, isWhite);
-            foreach (var pawn in pawnList)
+            if (pieceType == PieceType.Pawn)
             {
-                var fileFlag = 1 << pawn.Square.File;
-                // Double pawn penalty
-                if ((pawnFileFlags & fileFlag) != 0) // We know there was a pawn on this file, so it's a double pawn
-                    evaluation -= 15 * sign;
-                pawnFileFlags |= fileFlag;
-
-                // Passed pawns
-                ulong passedPawnMask = 0;
-                BitboardHelper.SetSquare(ref passedPawnMask, pawn.Square);
-                if (pawn.Square.File < 7)
-                    passedPawnMask |= passedPawnMask << 1;
-                if (pawn.Square.File > 0)
-                    passedPawnMask |= passedPawnMask >> 1;
-                if (isWhite)
+                var pawnFileFlags = 0;
+                foreach (var pawn in pieceList)
                 {
-                    passedPawnMask <<= 8;
-                    passedPawnMask |= passedPawnMask << 8;
-                    passedPawnMask |= passedPawnMask << 16;
-                    passedPawnMask |= passedPawnMask << 32;
-                }
-                else
-                {
-                    passedPawnMask >>= 8;
-                    passedPawnMask |= passedPawnMask >> 8;
-                    passedPawnMask |= passedPawnMask >> 16;
-                    passedPawnMask |= passedPawnMask >> 32;
-                }
-                // Passed pawn bonus, the closer to promotion the bigger
-                if ((passedPawnMask & _board.GetPieceBitboard(PieceType.Pawn, !isWhite)) == 0) // Check interesction between mask and enemy pawns
-                    evaluation += 20 * (isWhite ? pawn.Square.Rank : 7 - pawn.Square.Rank) * sign;
-            }
+                    var fileFlag = 1 << pawn.Square.File;
+                    // Double pawn penalty
+                    if ((pawnFileFlags & fileFlag) != 0) // We know there was a pawn on this file, so it's a double pawn
+                        evaluation -= 15 * sign;
+                    pawnFileFlags |= fileFlag;
 
-            foreach (var pawn in pawnList)
-            {
-                var fileFlag = 1 << pawn.Square.File;
-                // Isolated pawn penalty
-                if ((pawnFileFlags & ((fileFlag << 1) | (fileFlag >> 1))) == 0) // Check adjacent files for other friendly pawns
-                    evaluation -= 10 * sign;
+                    // Passed pawns
+                    ulong passedPawnMask = 0;
+                    BitboardHelper.SetSquare(ref passedPawnMask, pawn.Square);
+                    if (pawn.Square.File < 7)
+                        passedPawnMask |= passedPawnMask << 1;
+                    if (pawn.Square.File > 0)
+                        passedPawnMask |= passedPawnMask >> 1;
+                    if (isWhite)
+                    {
+                        passedPawnMask <<= 8;
+                        passedPawnMask |= passedPawnMask << 8;
+                        passedPawnMask |= passedPawnMask << 16;
+                        passedPawnMask |= passedPawnMask << 32;
+                    }
+                    else
+                    {
+                        passedPawnMask >>= 8;
+                        passedPawnMask |= passedPawnMask >> 8;
+                        passedPawnMask |= passedPawnMask >> 16;
+                        passedPawnMask |= passedPawnMask >> 32;
+                    }
+                    // Passed pawn bonus, the closer to promotion the bigger
+                    if ((passedPawnMask & _board.GetPieceBitboard(PieceType.Pawn, !isWhite)) == 0) // Check interesction between mask and enemy pawns
+                        evaluation += 20 * (isWhite ? pawn.Square.Rank : 7 - pawn.Square.Rank) * sign;
+                }
+
+                foreach (var pawn in pieceList)
+                {
+                    var fileFlag = 1 << pawn.Square.File;
+                    // Isolated pawn penalty
+                    if ((pawnFileFlags & ((fileFlag << 1) | (fileFlag >> 1))) == 0) // Check adjacent files for other friendly pawns
+                        evaluation -= 10 * sign;
+                }
             }
         }
-
-        // This didn't get more wins, so commenting out
-        //void EvaluateKing(bool isWhite)
-        //{
-        //    // Evaluate king safety, by getting a bitboard of a queen on the king square
-        //    int sign = isWhite ? 1 : -1;
-        //    var king = _board.GetPieceList(PieceType.King, isWhite)[0];
-        //    var kingThreatsBitboard = BitboardHelper.GetPieceAttacks(PieceType.Queen, king.Square, _board, isWhite);
-        //    var kingThreats = BitboardHelper.GetNumberOfSetBits(kingThreatsBitboard);
-        //    evaluation -= kingThreats * 1 * sign;
-        //}
     }
 
     private void OrderMoves(ref Span<Move> moves, bool useBestMove)
@@ -330,66 +341,68 @@ public class MyBot : IChessBot
         }
     }
 
-    public class TranspositionTable
+    //public class TranspositionTable
+    //{
+    //    private ulong _capacity;
+    //    private TTEntry[] _entries;
+
+    //    private ulong GetIndex(ulong zobristkey) => zobristkey % _capacity;
+
+    //    public TranspositionTable(ulong capacity)
+    //    {
+    //        _capacity = capacity;
+    //        _entries = new TTEntry[capacity];
+    //    }
+
+    //    public void StoreEvaluation(int depth, int eval, ulong zobristKey, TableEvalType nodeType)
+    //    {
+    //        _entries[GetIndex(zobristKey)] = new TTEntry(eval, (byte)depth, nodeType, zobristKey);
+    //    }
+
+    //    public bool TryGetEvaluation(ulong zobristKey, int depth, int alpha, int beta, out int eval)
+    //    {
+    //        TTEntry entry = _entries[GetIndex(zobristKey)];
+    //        if (entry._zobristKey == zobristKey)
+    //        {
+    //            if (entry._depth >= depth)
+    //            {
+    //                eval = entry._evalValue;
+    //                if (entry._nodeType == TableEvalType.Exact)
+    //                    return true;
+    //                if (entry._nodeType == TableEvalType.Alpha && eval <= alpha)
+    //                    return true;
+    //                if (entry._nodeType == TableEvalType.Beta && eval >= beta)
+    //                    return true;
+    //            }
+    //        }
+    //        eval = 0;
+    //        return false;
+    //    }
+
+
+    //}
+
+    public struct TTEntry
     {
-        private ulong _capacity;
-        private Entry[] _entries;
+        public int _evalValue;
+        public byte _depth;
+        public TableEvalType _nodeType;
+        public ulong _zobristKey;
 
-        private ulong GetIndex(ulong zobristkey) => zobristkey % _capacity;
-
-        public TranspositionTable(ulong capacity)
+        public TTEntry(int eval, byte depth, TableEvalType nodeType, ulong zobristKey)
         {
-            _capacity = capacity;
-            _entries = new Entry[capacity];
+            _evalValue = eval;
+            _depth = depth;
+            _nodeType = nodeType;
+            _zobristKey = zobristKey;
         }
-
-        public void StoreEvaluation(int depth, int eval, ulong zobristKey, TableEvalType nodeType)
-        {
-            _entries[GetIndex(zobristKey)] = new Entry(eval, (byte)depth, nodeType, zobristKey);
-        }
-
-        public bool TryGetEvaluation(ulong zobristKey, int depth, int alpha, int beta, out int eval)
-        {
-            Entry entry = _entries[GetIndex(zobristKey)];
-            if (entry._zobristKey == zobristKey)
-            {
-                if (entry._depth >= depth)
-                {
-                    eval = entry._evalValue;
-                    if (entry._nodeType == TableEvalType.Exact)
-                        return true;
-                    if (entry._nodeType == TableEvalType.Alpha && eval <= alpha)
-                        return true;
-                    if (entry._nodeType == TableEvalType.Beta && eval >= beta)
-                        return true;
-                }
-            }
-            eval = 0;
-            return false;
-        }
-
-        public struct Entry
-        {
-            public readonly int _evalValue;
-            public readonly byte _depth;
-            public readonly TableEvalType _nodeType;
-            public readonly ulong _zobristKey;
-
-            public Entry(int eval, byte depth, TableEvalType nodeType, ulong zobristKey)
-            {
-                _evalValue = eval;
-                _depth = depth;
-                _nodeType = nodeType;
-                _zobristKey = zobristKey;
-            }
 
 #if DEBUG
             public static int GetSize()
             {
-                return System.Runtime.InteropServices.Marshal.SizeOf<Entry>();
+                return System.Runtime.InteropServices.Marshal.SizeOf<TTEntry>();
             }
 #endif
-        }
     }
 
     public enum TableEvalType : byte

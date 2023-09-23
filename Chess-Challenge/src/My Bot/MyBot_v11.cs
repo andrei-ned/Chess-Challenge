@@ -11,11 +11,12 @@ using ChessChallenge.Application;
 public class MyBot_v11_isolated_pawns : IChessBot
 {
 #if DEBUG
-    public int DebugEvaluate(string fen)
+    public int DebugEvaluate(string fen, bool printResult = true)
     {
         _board = Board.CreateBoardFromFEN(fen);
         var eval = Evaluate();
-        ConsoleHelper.Log($"Evaluate result: {eval}");
+        if (printResult)
+            ConsoleHelper.Log($"Evaluate result: {eval}");
         return eval;
     }
 #endif

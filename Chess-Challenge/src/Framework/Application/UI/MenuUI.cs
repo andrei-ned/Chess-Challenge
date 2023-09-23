@@ -3,6 +3,7 @@ using System.Numerics;
 using System;
 using System.IO;
 using ChessChallenge.Chess;
+using System.Diagnostics;
 
 namespace ChessChallenge.Application
 {
@@ -101,9 +102,34 @@ namespace ChessChallenge.Application
             if (NextButtonInRow("Evaluate FEN", ref buttonPos, spacing, buttonSize))
             {
                 var myBot = new MyBot();
+                var myBotv11 = new MyBot_v11_isolated_pawns();
                 string? fen = GetFENFromInput();
+
+                Stopwatch stopwatch = new Stopwatch();
                 if (fen != null)
-                    myBot.DebugEvaluate(fen);
+                {
+                    //ConsoleHelper.Log("MyBot:");
+                    //myBot.DebugEvaluate(fen);
+                    //ConsoleHelper.Log("MyBot_v11:");
+                    //myBotv11.DebugEvaluate(fen);
+
+                    int eval = 0;
+                    stopwatch.Start();
+                    for (int i = 0; i < 1000000; i++)
+                    {
+                        eval = myBot.DebugEvaluate(fen, false);
+                    }
+                    stopwatch.Stop();
+                    ConsoleHelper.Log($"MyBot elapsed {stopwatch.Elapsed.TotalMilliseconds} ms and evaluated {eval}");
+
+                    stopwatch.Restart();
+                    for (int i = 0; i < 1000000; i++)
+                    {
+                        eval = myBotv11.DebugEvaluate(fen, false);
+                    }
+                    stopwatch.Stop();
+                    ConsoleHelper.Log($"MyBot v11 elapsed {stopwatch.Elapsed.TotalMilliseconds} ms and evaluate {eval}");
+                }
             }
 #endif
 
