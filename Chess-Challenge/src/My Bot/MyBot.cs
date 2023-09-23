@@ -50,7 +50,7 @@ public class MyBot : IChessBot
     Random _rng = new Random();
 
     // Transposition table
-    private TTEntry[] _ttEntries = new TTEntry[32000];
+    private TTEntry[] _ttEntries = new TTEntry[16000000];
 
 #if DEBUG
     private int _evalCount;
@@ -85,7 +85,7 @@ public class MyBot : IChessBot
                 return 0;
 
             // Try get evaluation from Transposition Table
-            TTEntry entry = _ttEntries[board.ZobristKey % 32000];
+            TTEntry entry = _ttEntries[board.ZobristKey % 16000000];
             int tableEval = entry._evalValue;
             if (ply != 0 && entry._zobristKey == board.ZobristKey && entry._depth >= depth
                 && (entry._nodeType == 0
@@ -133,7 +133,7 @@ public class MyBot : IChessBot
 
             void StoreEvalInTT(int evalValue, byte nodeType)
             {
-                _ttEntries[board.ZobristKey % 32000] = new TTEntry
+                _ttEntries[board.ZobristKey % 16000000] = new TTEntry
                 {
                     _nodeType = nodeType,
                     _depth = (byte)depth,

@@ -25,7 +25,7 @@ public class MyBot_v11_isolated_pawns : IChessBot
     private int[] _pieceValues = { 0, 100, 300, 300, 500, 900, 10000 };
     private int[] _bonusPointsPerAttackEarly = { 0, 0, 4, 5, 1, 1, 0 };
     private int[] _bonusPointsPerAttackLate = { 0, 0, 2, 3, 5, 3, 1 };
-    private TranspositionTable _transpositionTable = new TranspositionTable(32000);
+    private TranspositionTable _transpositionTable = new TranspositionTable(16000000);
     private Board _board;
     private Move _bestMove;
 

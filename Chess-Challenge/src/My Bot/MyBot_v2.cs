@@ -7,7 +7,7 @@ using System.Linq;
 public class MyBot_v2_TTable : IChessBot
 {
     private int[] pieceValues = { 0, 100, 300, 300, 500, 900, 10000 };
-    private TranspositionTable _transpositionTable = new TranspositionTable(32000);
+    private TranspositionTable _transpositionTable = new TranspositionTable(16000000);
     private Board _board;
     private Move _bestMove;
 
