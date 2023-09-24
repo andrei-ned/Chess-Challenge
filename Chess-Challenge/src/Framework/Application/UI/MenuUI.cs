@@ -26,11 +26,12 @@ namespace ChessChallenge.Application
                 //ChallengeController.PlayerType.MyBot_v4,
                 //ChallengeController.PlayerType.MyBot_v5,
                 //ChallengeController.PlayerType.MyBot_v6,
-                ChallengeController.PlayerType.MyBot_v7,
+                //ChallengeController.PlayerType.MyBot_v7,
                 ChallengeController.PlayerType.MyBot_v8,
                 ChallengeController.PlayerType.MyBot_v9,
                 ChallengeController.PlayerType.MyBot_v10,
                 ChallengeController.PlayerType.MyBot_v11,
+                ChallengeController.PlayerType.MyBot_v12,
             };
 
             ChallengeController.PlayerType[] myBotMatchups = {
@@ -42,11 +43,12 @@ namespace ChessChallenge.Application
                 //ChallengeController.PlayerType.MyBot_v4,
                 //ChallengeController.PlayerType.MyBot_v5,
                 //ChallengeController.PlayerType.MyBot_v6,
-                ChallengeController.PlayerType.MyBot_v7,
+                //ChallengeController.PlayerType.MyBot_v7,
                 ChallengeController.PlayerType.MyBot_v8,
                 ChallengeController.PlayerType.MyBot_v9,
                 ChallengeController.PlayerType.MyBot_v10,
                 ChallengeController.PlayerType.MyBot_v11,
+                ChallengeController.PlayerType.MyBot_v12,
             };
 
             // Game Buttons

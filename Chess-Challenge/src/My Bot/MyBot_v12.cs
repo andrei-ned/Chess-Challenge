@@ -4,7 +4,7 @@ using System.Numerics;
 using System.Collections.Generic;
 using System.Linq;
 
-public class MyBot : IChessBot
+public class MyBot_v12_compact_brain : IChessBot
 {
     // { None, Pawn, Knight, Bishop, Rook, Queen, King}
     private int[] _pieceValues = { 0, 100, 320, 320, 500, 1000, 10000 };
