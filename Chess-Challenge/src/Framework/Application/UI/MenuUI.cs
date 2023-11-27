@@ -4,12 +4,15 @@ using System;
 using System.IO;
 using ChessChallenge.Chess;
 using System.Diagnostics;
+using ChessChallenge.API;
 
 namespace ChessChallenge.Application
 {
     public static class MenuUI
     {
         private static ChallengeController.PlayerType lastSelectedBot = ChallengeController.PlayerType.MyBot;
+
+        private static bool isBitboardVis = false;
 
         public static void DrawButtons(ChallengeController controller)
         {
@@ -101,37 +104,41 @@ namespace ChessChallenge.Application
                 ConsoleHelper.Log(controller.GetFEN());
             }
 #if DEBUG
-            if (NextButtonInRow("Evaluate FEN", ref buttonPos, spacing, buttonSize))
+            //if (NextButtonInRow("Evaluate FEN", ref buttonPos, spacing, buttonSize))
+            //{
+            //    var myBot = new MyBot();
+            //    var myBotv11 = new MyBot_v11_isolated_pawns();
+            //    string? fen = GetFENFromInput();
+
+            //    Stopwatch stopwatch = new Stopwatch();
+            //    if (fen != null)
+            //    {
+            //        //ConsoleHelper.Log("MyBot:");
+            //        //myBot.DebugEvaluate(fen);
+            //        //ConsoleHelper.Log("MyBot_v11:");
+            //        //myBotv11.DebugEvaluate(fen);
+
+            //        int eval = 0;
+            //        stopwatch.Start();
+            //        for (int i = 0; i < 1000000; i++)
+            //        {
+            //            eval = myBot.DebugEvaluate(fen, false);
+            //        }
+            //        stopwatch.Stop();
+            //        ConsoleHelper.Log($"MyBot elapsed {stopwatch.Elapsed.TotalMilliseconds} ms and evaluated {eval}");
+
+            //        stopwatch.Restart();
+            //        for (int i = 0; i < 1000000; i++)
+            //        {
+            //            eval = myBotv11.DebugEvaluate(fen, false);
+            //        }
+            //        stopwatch.Stop();
+            //        ConsoleHelper.Log($"MyBot v11 elapsed {stopwatch.Elapsed.TotalMilliseconds} ms and evaluate {eval}");
+            //    }
+            //}
+            if (NextButtonInRow("Toggle bitboard vis", ref buttonPos, spacing, buttonSize))
             {
-                var myBot = new MyBot();
-                var myBotv11 = new MyBot_v11_isolated_pawns();
-                string? fen = GetFENFromInput();
-
-                Stopwatch stopwatch = new Stopwatch();
-                if (fen != null)
-                {
-                    //ConsoleHelper.Log("MyBot:");
-                    //myBot.DebugEvaluate(fen);
-                    //ConsoleHelper.Log("MyBot_v11:");
-                    //myBotv11.DebugEvaluate(fen);
-
-                    int eval = 0;
-                    stopwatch.Start();
-                    for (int i = 0; i < 1000000; i++)
-                    {
-                        eval = myBot.DebugEvaluate(fen, false);
-                    }
-                    stopwatch.Stop();
-                    ConsoleHelper.Log($"MyBot elapsed {stopwatch.Elapsed.TotalMilliseconds} ms and evaluated {eval}");
-
-                    stopwatch.Restart();
-                    for (int i = 0; i < 1000000; i++)
-                    {
-                        eval = myBotv11.DebugEvaluate(fen, false);
-                    }
-                    stopwatch.Stop();
-                    ConsoleHelper.Log($"MyBot v11 elapsed {stopwatch.Elapsed.TotalMilliseconds} ms and evaluate {eval}");
-                }
+                HandleVisualizingBitboard();
             }
 #endif
 
@@ -213,6 +220,47 @@ namespace ChessChallenge.Application
                 }
                 return null;
             }
+        }
+
+        private static void HandleVisualizingBitboard()
+        {
+            // BITBOARD FOR PASSED PAWNS
+            if (isBitboardVis)
+            {
+                BitboardHelper.StopVisualizingBitboard();
+                isBitboardVis = false;
+                return;
+            }
+
+            string input = Console.ReadLine() ?? "";
+            if (string.IsNullOrEmpty(input))
+            {
+                return;
+            }
+            var square = new Square(input);
+            bool isWhite = true;
+            ulong passedPawnMask = 0;
+            BitboardHelper.SetSquare(ref passedPawnMask, square);
+            if (square.File < 7)
+                passedPawnMask |= passedPawnMask << 1;
+            if (square.File > 0)
+                passedPawnMask |= passedPawnMask >> 1;
+            if (isWhite)
+            {
+                passedPawnMask <<= 8;
+                passedPawnMask |= passedPawnMask << 8;
+                passedPawnMask |= passedPawnMask << 16;
+                passedPawnMask |= passedPawnMask << 32;
+            }
+            else
+            {
+                passedPawnMask >>= 8;
+                passedPawnMask |= passedPawnMask >> 8;
+                passedPawnMask |= passedPawnMask >> 16;
+                passedPawnMask |= passedPawnMask >> 32;
+            }
+            isBitboardVis = true;
+            BitboardHelper.VisualizeBitboard(passedPawnMask);
         }
     }
 }
